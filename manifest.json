@@ -1,8 +1,9 @@
 {
+  "id": "ZokersModMenu",
   "name": "ZokersModMenu",
-  "version_number": "1.4.8",
+  "version_number": "1.5.0",
   "website_url": "https://github.com/1Zoker/ZokersModMenu",
-  "description": "Press C to open Mod Menu - Now with proper menu toggle and fixed card format!",
+  "description": "Press C or steammodded config to open Mod Menu - Enhanced stability and multiple access methods!",
   "dependencies": [
     "Steamodded-Steamodded-0.9.8"
   ],
@@ -15,7 +16,7 @@
   "license": "MIT",
   "main_file": "ZokersModMenu.lua",
   "features": [
-    "Press C anywhere to toggle menu (won't close other menus!)",
+    "Press C or F1 anywhere to toggle menu (multiple access methods!)",
     "Starting money customization ($0-$5000) with fast increment buttons",
     "Starting hands/discards adjustment (1-25 / 0-25)",
     "Hand size customization (1-50 cards)",
@@ -36,17 +37,20 @@
     "Fixed menu toggle - no longer interferes with other menus",
     "Fixed card format - uses correct Balatro IDs (H_2, S_A, etc.)",
     "Fixed enhancement/seal cycling and saving",
-    "Legacy format conversion and full compatibility"
+    "Legacy format conversion and full compatibility",
+    "Enhanced crash prevention and error handling",
+    "Multiple menu access keys for better accessibility"
   ],
   "installation_notes": [
     "Requires Steamodded 0.9.8 (dependency will auto-install)",
     "Place ZokersModMenu.lua in your Balatro mods folder", 
-    "Press C anywhere in game to toggle the customization menu",
+    "Press C or F1 anywhere in game to toggle the customization menu",
+    "Alternative: Click Zoker's Menu button in pause menu",
     "Menu won't close other game menus - proper toggle functionality",
     "Use F7 console for advanced commands and precise control",
     "Custom decks disabled by default - enable in main menu",
     "Mika's Mod Collection optional but recommended for 60+ additional jokers",
     "Enable 'Give Items' before starting a run to use the give system"
   ],
-  "changelog": "v1.4.8: Fixed menu toggle interference, corrected card ID format (H_2, S_A), fixed enhancement/seal cycling, improved card giving logic (deck vs hand placement), added UI refresh delays, removed duplicate key handlers, fixed syntax errors"
+  "changelog": "v1.5.0: Added Steammodded config as alternative access path, enhanced crash prevention system, improved error handling for edge cases, fixed metadata structure for better mod loader compatibility"
 }

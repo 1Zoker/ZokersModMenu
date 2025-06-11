@@ -1,6 +1,12 @@
-# ZokersModMenu v1.4.8
+# ZokersModMenu v1.5.0
 
 A comprehensive customization mod for Balatro that allows you to modify starting conditions, build custom decks, select starting jokers and vouchers, and much more. Compatible with Mika's Mod Collection for expanded joker selection.
+
+## 🆕 What's New in v1.5.0
+- **Multiple Access Methods**: Press C or go to steammodded config to open the menu - better accessibility!
+- **Enhanced Stability**: Improved crash prevention and error handling
+- **Fixed Metadata**: Resolved mod loader compatibility issues
+- **Better Error Recovery**: Graceful handling of edge cases
 
 ## Features
 
@@ -24,7 +30,7 @@ A comprehensive customization mod for Balatro that allows you to modify starting
 - **Standard Templates**: Quick-create standard 52-card decks
 - **Proper Card Format**: Uses correct Balatro card IDs (H_2, S_A, etc.)
 
-### 🎯 Give System (NEW!)
+### 🎯 Give System
 - **Give Items During Runs**: Enable/disable giving items while playing
 - **Give Money**: Add $10, $50, $100, or $1000 instantly
 - **Give Cards**: Create any playing card with custom properties
@@ -52,10 +58,11 @@ A comprehensive customization mod for Balatro that allows you to modify starting
 
 ### 🔧 Advanced Features
 - **Modern UI**: Clean interface with contemporary styling
-- **Non-Intrusive Toggle**: Press 'C' to open/close without affecting other menus
+- **Multiple Access Keys**: Press 'C' or 'F1' to open/close menu
+- **Non-Intrusive Toggle**: Menu doesn't affect other game menus
 - **Hold-to-Repeat**: Hold +/- buttons for fast value changes
 - **Optional Custom Decks**: Custom decks are disabled by default - enable when ready
-- **No Save Duplication**: Fixed bug where jokers would duplicate on save/load
+- **Enhanced Stability**: Improved crash prevention and error handling
 - **New Game Only**: Settings only apply to new games, not loaded saves
 - **Legacy Conversion**: Automatically converts old deck formats
 - **Console Commands**: Full console integration for precise control
@@ -76,7 +83,8 @@ A comprehensive customization mod for Balatro that allows you to modify starting
 ## Usage
 
 ### Opening the Menu
-- **Keybind**: Press `C` anywhere in the game (won't close other menus!)
+- **Primary Keybind**: Press `C` anywhere in the game
+- **Alternative Keybind**: Press `F1` anywhere in the game (NEW!)
 - **Pause Menu**: Click "Zoker's Menu" button in pause menu
 - **Console**: Type `cs_open()` in the developer console (F7)
 
@@ -165,26 +173,28 @@ When Mika's Mod Collection is detected, ZokersModMenu automatically:
 3. Start a new run to use your custom deck
 4. Your deck persists across sessions
 
+### Menu Access
+1. Press C for quick access (traditional method)
+2. Use pause menu button if keyboard shortcuts don't work
+3. Console command `cs_open()` always available as backup
+
 ## Version History
 
-### v1.4.8 (Latest - 2025-06-09)
-- **FIXED**: Menu toggle now works properly without closing other menus
-- **FIXED**: Card naming format updated to correct Balatro format (H_2, S_A, etc.)
-- **FIXED**: Enhancement and seal cycling now properly saves and applies
-- **IMPROVED**: Card giving logic - cards go to deck when in shop/between rounds
-- **IMPROVED**: Give Card menu now refreshes properly after giving cards
-- **ADDED**: Debug logging for enhancement/seal/edition changes
-- **ADDED**: Small delays to prevent UI flickering when giving cards
-- **FIXED**: Removed duplicate keyboard handlers causing instant menu close
-- **FIXED**: Extra 'end' statements causing loading errors
+### v1.5.0 (Latest - 2025-06-11)
+- **ADDED**: SteamModded Config as alternative menu access
+- **ENHANCED**: Crash prevention system with better error handling
+- **FIXED**: Metadata structure for improved mod loader compatibility
+- **IMPROVED**: Error recovery for edge cases and unexpected states
+- **UPDATED**: Documentation with multiple access methods
 
-### v1.4.1 (Previous)
-- Initial Thunderstore release with core features
-- Full deck builder with enhancements, seals, and editions
-- Starting stats customization
-- Joker and voucher selection systems
-- Give item functionality
-- Console command integration
+### v1.4.8 (Previous)
+- Fixed menu toggle to work properly without closing other menus
+- Fixed card naming format to correct Balatro format
+- Fixed enhancement and seal cycling
+- Improved card giving logic
+- Fixed syntax errors and duplicate handlers
+
+[See changelog.md for complete version history]
 
 ## Support
 
@@ -193,6 +203,14 @@ If you encounter issues:
 2. Verify Steamodded is properly installed
 3. Ensure mod files are in the correct directory
 4. Try disabling other mods to test compatibility
+5. Try both C and F1 keys to open the menu
+
+## Error Prevention (v1.5.0)
+The mod now includes enhanced error handling:
+- Graceful recovery from unexpected game states
+- Protection against nil reference errors
+- Safe fallbacks for missing dependencies
+- Improved compatibility with other mods
 
 ## Credits
 

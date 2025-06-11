@@ -6,8 +6,8 @@
 --- BADGE_COLOUR: 708b91
 --- PREFIX: cs
 --- PRIORITY: 0
---- VERSION: 1.4.8
---- RELEASE_DATE: 2025-06-09
+--- VERSION: 1.5.0
+--- RELEASE_DATE: 2025-06-11
 
 ----------------------------------------------
 ------------MOD CODE -------------------------
@@ -24,6 +24,47 @@ end
 if not mod then
     print("ZokersModMenu: Warning - mod instance not found, creating fallback")
     mod = {config = {}}
+end
+
+-- Add Steamodded config tab for opening the menu
+if SMODS and SMODS.current_mod then
+    SMODS.current_mod.config_tab = function()
+        return {
+            n = G.UIT.ROOT,
+            config = {align = "cm", padding = 0.1, colour = G.C.CLEAR},
+            nodes = {
+                {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+                    {n = G.UIT.T, config = {text = "Zoker's Mod Menu", scale = 0.8, colour = G.C.WHITE}}
+                }},
+                {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+                    {n = G.UIT.T, config = {text = "Press 'C' in-game or click below to open", scale = 0.4, colour = G.C.WHITE}}
+                }},
+                {n = G.UIT.R, config = {align = "cm", padding = 0.2}, nodes = {
+                    {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_open_main_menu_from_config", hover = true, minw = 3, minh = 1, colour = G.C.BLUE, r = 0.1}, 
+                     nodes = {{n = G.UIT.T, config = {text = "Open Mod Menu", scale = 0.5, colour = G.C.WHITE}}}}
+                }}
+            }
+        }
+    end
+end
+
+-- Function to open menu from Steamodded config
+G.FUNCS.cs_open_main_menu_from_config = function(e)
+    -- Close the Steamodded config menu first
+    if G.OVERLAY_MENU then
+        G.OVERLAY_MENU:remove()
+        G.OVERLAY_MENU = nil
+    end
+    
+    -- Small delay to ensure smooth transition
+    G.E_MANAGER:add_event(Event({
+        trigger = 'after',
+        delay = 0.1,
+        func = function()
+            G.FUNCS.cs_open_main_menu()
+            return true
+        end
+    }))
 end
 
 -- Ensure all values exist with defaults
@@ -268,6 +309,25 @@ function Game:start_run(args)
     -- Call original function FIRST to ensure game is properly initialized
     ref_Game_start_run(self, args)
     
+    -- IMPORTANT: Only apply mod settings to NEW runs, not loaded saves
+    -- Check if this is a loaded save by looking for existing round number > 1 or if we're past ante 1
+    local is_loaded_save = false
+    if args and args.savetext then
+        is_loaded_save = true
+    elseif G.GAME and G.GAME.round_resets and G.GAME.round_resets.ante and G.GAME.round_resets.ante > 1 then
+        is_loaded_save = true
+    elseif G.GAME and G.GAME.round and G.GAME.round > 1 then
+        is_loaded_save = true
+    end
+    
+    -- If this is a loaded save, don't apply any mod settings
+    if is_loaded_save then
+        print("ZokersModMenu: Loaded save detected, not applying mod settings")
+        return
+    end
+    
+    print("ZokersModMenu: New run detected, applying mod settings")
+    
     -- Apply custom deck IMMEDIATELY if enabled
     if mod.config.use_custom_deck and #mod.config.custom_deck > 0 and G.playing_cards and G.deck and not mod._deck_replaced then
         print("ZokersModMenu: Applying custom deck at run start with " .. #mod.config.custom_deck .. " cards")
@@ -302,22 +362,21 @@ function Game:start_run(args)
             local card_id = suit .. '_' .. rank
             
             if G.P_CARDS[card_id] then
-                -- Get enhancement center
-                local enhancement_center = G.P_CENTERS.c_base
-                if enhancement ~= 'base' and G.P_CENTERS[enhancement] then
-                    enhancement_center = G.P_CENTERS[enhancement]
-                end
-                
-                -- Create card
+                -- Create card with base center
                 local card = Card(
                     G.deck.T.x, G.deck.T.y,
                     G.CARD_W, G.CARD_H,
                     G.P_CARDS[card_id],
-                    enhancement_center,
+                    G.P_CENTERS.c_base,
                     {playing_card = card_id}
                 )
                 
                 if card then
+                    -- Apply enhancement after creation if not base
+                    if enhancement ~= 'base' and G.P_CENTERS[enhancement] then
+                        card:set_ability(G.P_CENTERS[enhancement])
+                    end
+                    
                     -- Apply seal
                     if seal ~= 'none' then
                         card.seal = seal
@@ -327,6 +386,8 @@ function Game:start_run(args)
                     if edition ~= 'base' then
                         card:set_edition({[edition] = true})
                     end
+                    
+                    -- Lucky cards don't need special handling - the game handles them
                     
                     -- Add to deck
                     card:add_to_deck()
@@ -409,7 +470,20 @@ function Game:start_run(args)
                 if G.GAME and G.GAME.hands then
                     for hand_name, hand_data in pairs(G.GAME.hands) do
                         local target_level = mod.config.hand_levels
-                        local levels_to_add = target_level - hand_data.level
+                        local current_level = hand_data.level
+                        
+                        -- Handle BigNum compatibility (Talisman mod)
+                        if type(current_level) == "table" and current_level.array then
+                            current_level = tonumber(tostring(current_level)) or 1
+                        end
+                        
+                        local levels_to_add = target_level - current_level
+                        
+                        -- Handle BigNum result
+                        if type(levels_to_add) == "table" and levels_to_add.array then
+                            levels_to_add = tonumber(tostring(levels_to_add)) or 0
+                        end
+                        
                         if levels_to_add > 0 then
                             hand_data.level = target_level
                             hand_data.mult = hand_data.mult + (hand_data.l_mult * levels_to_add)
@@ -506,6 +580,20 @@ if init_game then
     init_game = function(args)
         local ret = ref_init_game(args)
         
+        -- Check if this is a loaded save
+        local is_loaded_save = false
+        if args and args.savetext then
+            is_loaded_save = true
+        elseif G.GAME and G.GAME.round_resets and G.GAME.round_resets.ante and G.GAME.round_resets.ante > 1 then
+            is_loaded_save = true
+        end
+        
+        -- Don't apply custom deck to loaded saves
+        if is_loaded_save then
+            print("ZokersModMenu: Loaded save detected in init_game, not applying custom deck")
+            return ret
+        end
+        
         -- Apply custom deck if enabled and not already replaced
         if mod.config.use_custom_deck and #mod.config.custom_deck > 0 and not mod._deck_replaced and G.playing_cards and G.deck then
             print("ZokersModMenu: Applying custom deck via init_game with " .. #mod.config.custom_deck .. " cards")
@@ -540,22 +628,21 @@ if init_game then
                 local card_id = suit .. '_' .. rank
                 
                 if G.P_CARDS[card_id] then
-                    -- Get enhancement center
-                    local enhancement_center = G.P_CENTERS.c_base
-                    if enhancement ~= 'base' and G.P_CENTERS[enhancement] then
-                        enhancement_center = G.P_CENTERS[enhancement]
-                    end
-                    
-                    -- Create card
+                    -- Create card with base center
                     local card = Card(
                         G.deck.T.x, G.deck.T.y,
                         G.CARD_W, G.CARD_H,
                         G.P_CARDS[card_id],
-                        enhancement_center,
+                        G.P_CENTERS.c_base,
                         {playing_card = card_id}
                     )
                     
                     if card then
+                        -- Apply enhancement after creation if not base
+                        if enhancement ~= 'base' and G.P_CENTERS[enhancement] then
+                            card:set_ability(G.P_CENTERS[enhancement])
+                        end
+                        
                         -- Apply seal
                         if seal ~= 'none' then
                             card.seal = seal
@@ -565,6 +652,8 @@ if init_game then
                         if edition ~= 'base' then
                             card:set_edition({[edition] = true})
                         end
+                        
+                        -- Lucky cards don't need special handling - the game handles them
                         
                         -- Add to deck
                         card:add_to_deck()
@@ -630,22 +719,21 @@ G.FUNCS.new_round = function()
             local card_id = suit .. '_' .. rank
             
             if G.P_CARDS[card_id] then
-                -- Get enhancement center
-                local enhancement_center = G.P_CENTERS.c_base
-                if enhancement ~= 'base' and G.P_CENTERS[enhancement] then
-                    enhancement_center = G.P_CENTERS[enhancement]
-                end
-                
-                -- Create card
+                -- Create card with base center
                 local card = Card(
                     G.deck.T.x, G.deck.T.y,
                     G.CARD_W, G.CARD_H,
                     G.P_CARDS[card_id],
-                    enhancement_center,
+                    G.P_CENTERS.c_base,
                     {playing_card = card_id}
                 )
                 
                 if card then
+                    -- Apply enhancement after creation if not base
+                    if enhancement ~= 'base' and G.P_CENTERS[enhancement] then
+                        card:set_ability(G.P_CENTERS[enhancement])
+                    end
+                    
                     -- Apply seal
                     if seal ~= 'none' then
                         card.seal = seal
@@ -655,6 +743,8 @@ G.FUNCS.new_round = function()
                     if edition ~= 'base' then
                         card:set_edition({[edition] = true})
                     end
+                    
+                    -- Lucky cards don't need special handling - the game handles them
                     
                     -- Add to deck
                     card:add_to_deck()
@@ -784,22 +874,21 @@ G.FUNCS.setup_deck = function()
             local card_id = suit .. '_' .. rank
             
             if G.P_CARDS[card_id] then
-                -- Get enhancement center
-                local enhancement_center = G.P_CENTERS.c_base
-                if enhancement ~= 'base' and G.P_CENTERS[enhancement] then
-                    enhancement_center = G.P_CENTERS[enhancement]
-                end
-                
-                -- Create card
+                -- Create card with base center
                 local card = Card(
                     G.deck.T.x, G.deck.T.y,
                     G.CARD_W, G.CARD_H,
                     G.P_CARDS[card_id],
-                    enhancement_center,
+                    G.P_CENTERS.c_base,
                     {playing_card = card_id}
                 )
                 
                 if card then
+                    -- Apply enhancement after creation if not base
+                    if enhancement ~= 'base' and G.P_CENTERS[enhancement] then
+                        card:set_ability(G.P_CENTERS[enhancement])
+                    end
+                    
                     -- Apply seal
                     if seal ~= 'none' then
                         card.seal = seal
@@ -809,6 +898,8 @@ G.FUNCS.setup_deck = function()
                     if edition ~= 'base' then
                         card:set_edition({[edition] = true})
                     end
+                    
+                    -- Lucky cards don't need special handling - the game handles them
                     
                     -- Add to deck
                     card:add_to_deck()
@@ -840,7 +931,7 @@ G.FUNCS.setup_deck = function()
     end
 end
 
-print("ZokersModMenu v1.4.1 loaded successfully!")
+print("ZokersModMenu v1.4.9 loaded successfully!")
 print("Press 'C' to toggle Zoker's Mod Menu")
 print("ZokersModMenu: Initial deck size: " .. #mod.config.custom_deck)
 
@@ -1238,9 +1329,9 @@ local function create_starting_items_menu()
             -- Spacing
             {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {}},
             
-            -- Menu buttons
+            -- Menu buttons - changed joker button to purple
             {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
-                {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_open_joker_menu", hover = true, minw = 6.2, minh = 1, colour = {0.8, 0.6, 0.2, 1}, r = 0.1}, 
+                {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_open_joker_menu", hover = true, minw = 6.2, minh = 1, colour = {0.6, 0.2, 0.8, 1}, r = 0.1}, 
                  nodes = {{n = G.UIT.T, config = {text = "Select Jokers", scale = 0.5, colour = G.C.WHITE}}}}
             }},
             
@@ -1291,10 +1382,10 @@ local function create_joker_menu()
         {n = G.UIT.R, config = {align = "cm", padding = 0.2, colour = {0, 0, 0, 1}, r = 0.1}, 
          nodes = {{n = G.UIT.T, config = {text = "SELECT STARTING JOKERS", scale = 0.8, colour = {1, 1, 1, 1}}}}},
         
-        -- Tab buttons
+        -- Tab buttons - with purple color for active tab
         {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
             {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_switch_to_vanilla", hover = true, minw = 2.5, minh = 0.8, 
-                colour = mod.config.active_joker_tab == "vanilla" and {0.8, 0.6, 0.2, 1} or {0.3, 0.3, 0.3, 1}, r = 0.1}, 
+                colour = mod.config.active_joker_tab == "vanilla" and {0.6, 0.2, 0.8, 1} or {0.3, 0.3, 0.3, 1}, r = 0.1}, 
              nodes = {{n = G.UIT.T, config = {text = "Vanilla", scale = 0.5, colour = G.C.WHITE}}}},
         }},
         
@@ -1306,20 +1397,8 @@ local function create_joker_menu()
     -- Add Mika's tab if enabled
     if is_mikas_mod_enabled() then
         joker_nodes[2].nodes[2] = {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_switch_to_mikas", hover = true, minw = 2.5, minh = 0.8, 
-            colour = mod.config.active_joker_tab == "mikas" and {0.98, 0.36, 0.66, 1} or {0.3, 0.3, 0.3, 1}, r = 0.1}, 
+            colour = mod.config.active_joker_tab == "mikas" and {0.6, 0.2, 0.8, 1} or {0.3, 0.3, 0.3, 1}, r = 0.1}, 
          nodes = {{n = G.UIT.T, config = {text = "Mika's", scale = 0.5, colour = G.C.WHITE}}}}
-    end
-    
-    -- Navigation - only show if more than 1 page
-    if total_pages > 1 then
-        table.insert(joker_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {
-            {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = is_mikas and "cs_mikas_joker_prev_page" or "cs_joker_prev_page", hover = true, minw = 2.5, minh = 1, colour = {0.8, 0.2, 0.2, 1}, r = 0.1}, 
-             nodes = {{n = G.UIT.T, config = {text = "◀ Previous", scale = 0.5, colour = G.C.WHITE}}}},
-            {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_clear_jokers", hover = true, minw = 2.5, minh = 1, colour = G.C.RED, r = 0.1}, 
-             nodes = {{n = G.UIT.T, config = {text = "Clear All", scale = 0.5, colour = G.C.WHITE}}}},
-            {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = is_mikas and "cs_mikas_joker_next_page" or "cs_joker_next_page", hover = true, minw = 2.5, minh = 1, colour = {0.2, 0.8, 0.2, 1}, r = 0.1}, 
-             nodes = {{n = G.UIT.T, config = {text = "Next ▶", scale = 0.5, colour = G.C.WHITE}}}}
-        }})
     end
     
     local joker_grid = {n = G.UIT.R, config = {align = "cm", padding = 0.05}, nodes = {}}
@@ -1380,16 +1459,28 @@ local function create_joker_menu()
     
     table.insert(joker_nodes, joker_grid)
     
-    -- Bottom buttons - adjusted for navigation
-    if total_pages <= 1 then
-        table.insert(joker_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.3}, nodes = {
-            {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_clear_jokers", hover = true, minw = 2.5, minh = 1, colour = G.C.RED, r = 0.1}, 
+    -- Spacer to push buttons to bottom
+    table.insert(joker_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {}})
+    
+    -- Bottom buttons - navigation and back
+    if total_pages > 1 then
+        table.insert(joker_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {
+            {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = is_mikas and "cs_mikas_joker_prev_page" or "cs_joker_prev_page", hover = true, minw = 2.5, minh = 1, colour = {0.8, 0.2, 0.2, 1}, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "◀ Previous", scale = 0.5, colour = G.C.WHITE}}}},
+            {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_clear_jokers", hover = true, minw = 2.5, minh = 1, colour = G.C.RED, r = 0.1}, 
              nodes = {{n = G.UIT.T, config = {text = "Clear All", scale = 0.5, colour = G.C.WHITE}}}},
+            {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = is_mikas and "cs_mikas_joker_next_page" or "cs_joker_next_page", hover = true, minw = 2.5, minh = 1, colour = {0.2, 0.8, 0.2, 1}, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "Next ▶", scale = 0.5, colour = G.C.WHITE}}}}
+        }})
+        
+        table.insert(joker_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
             {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_back_to_starting_items", hover = true, minw = 2.5, minh = 1, colour = {0.6, 0.6, 0.6, 1}, r = 0.1}, 
              nodes = {{n = G.UIT.T, config = {text = "Back", scale = 0.5, colour = G.C.WHITE}}}}
         }})
     else
         table.insert(joker_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.3}, nodes = {
+            {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_clear_jokers", hover = true, minw = 2.5, minh = 1, colour = G.C.RED, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "Clear All", scale = 0.5, colour = G.C.WHITE}}}},
             {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_back_to_starting_items", hover = true, minw = 2.5, minh = 1, colour = {0.6, 0.6, 0.6, 1}, r = 0.1}, 
              nodes = {{n = G.UIT.T, config = {text = "Back", scale = 0.5, colour = G.C.WHITE}}}}
         }})
@@ -1434,18 +1525,6 @@ local function create_voucher_menu()
         {n = G.UIT.R, config = {align = "cm", padding = 0.1}, 
          nodes = {{n = G.UIT.T, config = {text = "Selected: " .. tostring(#mod.config.starting_vouchers) .. " | Page: " .. current_page .. "/" .. total_pages, scale = 0.5, colour = {1, 1, 1, 1}}}}}
     }
-    
-    -- Navigation - only show if more than 1 page
-    if total_pages > 1 then
-        table.insert(voucher_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {
-            {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_voucher_prev_page", hover = true, minw = 2.5, minh = 1, colour = {0.8, 0.2, 0.2, 1}, r = 0.1}, 
-             nodes = {{n = G.UIT.T, config = {text = "◀ Previous", scale = 0.5, colour = G.C.WHITE}}}},
-            {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_clear_vouchers", hover = true, minw = 2.5, minh = 1, colour = G.C.RED, r = 0.1}, 
-             nodes = {{n = G.UIT.T, config = {text = "Clear All", scale = 0.5, colour = G.C.WHITE}}}},
-            {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_voucher_next_page", hover = true, minw = 2.5, minh = 1, colour = {0.2, 0.8, 0.2, 1}, r = 0.1}, 
-             nodes = {{n = G.UIT.T, config = {text = "Next ▶", scale = 0.5, colour = G.C.WHITE}}}}
-        }})
-    end
     
     local voucher_grid = {n = G.UIT.R, config = {align = "cm", padding = 0.05}, nodes = {}}
     
@@ -1493,16 +1572,28 @@ local function create_voucher_menu()
     
     table.insert(voucher_nodes, voucher_grid)
     
-    -- Bottom buttons - adjusted for navigation
-    if total_pages <= 1 then
-        table.insert(voucher_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.3}, nodes = {
-            {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_clear_vouchers", hover = true, minw = 2.5, minh = 1, colour = G.C.RED, r = 0.1}, 
+    -- Spacer to push buttons to bottom
+    table.insert(voucher_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {}})
+    
+    -- Bottom buttons - navigation and back
+    if total_pages > 1 then
+        table.insert(voucher_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {
+            {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_voucher_prev_page", hover = true, minw = 2.5, minh = 1, colour = {0.8, 0.2, 0.2, 1}, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "◀ Previous", scale = 0.5, colour = G.C.WHITE}}}},
+            {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_clear_vouchers", hover = true, minw = 2.5, minh = 1, colour = G.C.RED, r = 0.1}, 
              nodes = {{n = G.UIT.T, config = {text = "Clear All", scale = 0.5, colour = G.C.WHITE}}}},
+            {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_voucher_next_page", hover = true, minw = 2.5, minh = 1, colour = {0.2, 0.8, 0.2, 1}, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "Next ▶", scale = 0.5, colour = G.C.WHITE}}}}
+        }})
+        
+        table.insert(voucher_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
             {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_back_to_starting_items", hover = true, minw = 2.5, minh = 1, colour = {0.6, 0.6, 0.6, 1}, r = 0.1}, 
              nodes = {{n = G.UIT.T, config = {text = "Back", scale = 0.5, colour = G.C.WHITE}}}}
         }})
     else
         table.insert(voucher_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.3}, nodes = {
+            {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_clear_vouchers", hover = true, minw = 2.5, minh = 1, colour = G.C.RED, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "Clear All", scale = 0.5, colour = G.C.WHITE}}}},
             {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_back_to_starting_items", hover = true, minw = 2.5, minh = 1, colour = {0.6, 0.6, 0.6, 1}, r = 0.1}, 
              nodes = {{n = G.UIT.T, config = {text = "Back", scale = 0.5, colour = G.C.WHITE}}}}
         }})
@@ -1541,7 +1632,7 @@ local function create_give_item_menu()
         }},
         
         {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
-            {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_joker", hover = true, minw = 3, minh = 1, colour = {0.8, 0.6, 0.2, 1}, r = 0.1}, 
+            {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_joker", hover = true, minw = 3, minh = 1, colour = {0.6, 0.2, 0.8, 1}, r = 0.1}, 
              nodes = {{n = G.UIT.T, config = {text = "Joker", scale = 0.5, colour = G.C.WHITE}}}}
         }},
         
@@ -1608,6 +1699,11 @@ local function create_give_money_menu()
             {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
                 {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_money_1000", hover = true, minw = 3, minh = 1, colour = {0.2, 0.5, 0.5, 1}, r = 0.1}, 
                  nodes = {{n = G.UIT.T, config = {text = "Give $1000", scale = 0.5, colour = G.C.WHITE}}}}
+            }},
+            
+            {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+                {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_money_infinite", hover = true, minw = 3, minh = 1, colour = {1, 0.2, 1, 1}, r = 0.1}, 
+                 nodes = {{n = G.UIT.T, config = {text = "Infinite Money", scale = 0.5, colour = G.C.WHITE}}}}
             }},
             
             -- Spacing
@@ -1793,10 +1889,10 @@ local function create_card_selection_menu(card_list, title, give_function_name)
     if show_tabs then
         table.insert(card_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
             {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_switch_to_vanilla", hover = true, minw = 2.5, minh = 0.8, 
-                colour = mod.config.give_joker_tab == "vanilla" and {0.8, 0.6, 0.2, 1} or {0.3, 0.3, 0.3, 1}, r = 0.1}, 
+                colour = mod.config.give_joker_tab == "vanilla" and {0.6, 0.2, 0.8, 1} or {0.3, 0.3, 0.3, 1}, r = 0.1}, 
              nodes = {{n = G.UIT.T, config = {text = "Vanilla", scale = 0.5, colour = G.C.WHITE}}}},
             {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_switch_to_mikas", hover = true, minw = 2.5, minh = 0.8, 
-                colour = mod.config.give_joker_tab == "mikas" and {0.98, 0.36, 0.66, 1} or {0.3, 0.3, 0.3, 1}, r = 0.1}, 
+                colour = mod.config.give_joker_tab == "mikas" and {0.6, 0.2, 0.8, 1} or {0.3, 0.3, 0.3, 1}, r = 0.1}, 
              nodes = {{n = G.UIT.T, config = {text = "Mika's", scale = 0.5, colour = G.C.WHITE}}}}
         }})
     end
@@ -1852,23 +1948,23 @@ local function create_card_selection_menu(card_list, title, give_function_name)
     
     table.insert(card_nodes, card_grid)
     
-    -- Bottom navigation buttons - red previous, back, green next
+    -- Spacer to push buttons to bottom
+    table.insert(card_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {}})
+    
+    -- Bottom navigation buttons - always at bottom
     if total_pages > 1 then
         table.insert(card_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {
             {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_give_prev_page", hover = true, minw = 2.5, minh = 1, colour = {0.8, 0.2, 0.2, 1}, r = 0.1}, 
              nodes = {{n = G.UIT.T, config = {text = "◀ Previous", scale = 0.5, colour = G.C.WHITE}}}},
-            {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_back_to_consumable_type", hover = true, minw = 2.5, minh = 1, colour = {0.6, 0.6, 0.6, 1}, r = 0.1}, 
-             nodes = {{n = G.UIT.T, config = {text = "Back", scale = 0.5, colour = G.C.WHITE}}}},
             {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_give_next_page", hover = true, minw = 2.5, minh = 1, colour = {0.2, 0.8, 0.2, 1}, r = 0.1}, 
              nodes = {{n = G.UIT.T, config = {text = "Next ▶", scale = 0.5, colour = G.C.WHITE}}}}
         }})
-    else
-        table.insert(card_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {
-            {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_back_to_consumable_type", hover = true, minw = 3, minh = 1, colour = {0.6, 0.6, 0.6, 1}, r = 0.1}, 
-                 nodes = {{n = G.UIT.T, config = {text = "Back", scale = 0.5, colour = G.C.WHITE}}}}
-            }}
-        )
     end
+    
+    table.insert(card_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+        {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_back_to_consumable_type", hover = true, minw = 3, minh = 1, colour = {0.6, 0.6, 0.6, 1}, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "Back", scale = 0.5, colour = G.C.WHITE}}}}
+    }})
     
     return {
         n = G.UIT.ROOT,
@@ -1956,6 +2052,14 @@ G.FUNCS.cs_give_money_1000 = function(e)
     if G.GAME then
         G.GAME.dollars = (G.GAME.dollars or 0) + 1000
         print("Given: $1000 (Total: $" .. G.GAME.dollars .. ")")
+        create_overlay(create_give_money_menu())
+    end
+end
+
+G.FUNCS.cs_give_money_infinite = function(e)
+    if G.GAME then
+        G.GAME.dollars = 999999999999
+        print("Given: Infinite Money ($999999999999)")
         create_overlay(create_give_money_menu())
     end
 end
@@ -2104,12 +2208,6 @@ G.FUNCS.cs_give_configured_card = function(e)
         return
     end
     
-    -- Get enhancement center
-    local enhancement_center = G.P_CENTERS.c_base
-    if mod.config.give_card_enhancement and mod.config.give_card_enhancement ~= 'base' and G.P_CENTERS[mod.config.give_card_enhancement] then
-        enhancement_center = G.P_CENTERS[mod.config.give_card_enhancement]
-    end
-    
     -- Create card event with slight delay to prevent UI issues
     G.E_MANAGER:add_event(Event({
         trigger = 'after',
@@ -2129,17 +2227,22 @@ G.FUNCS.cs_give_configured_card = function(e)
                 add_to_hand = true
             end
             
-            -- Create card with proper enhancement
+            -- Create card with base center
             local card = Card(
                 create_area.T.x + create_area.T.w/2,
                 create_area.T.y,
                 G.CARD_W, G.CARD_H,
                 G.P_CARDS[card_id],
-                enhancement_center,
+                G.P_CENTERS.c_base,
                 {playing_card = card_id}
             )
             
             if card then
+                -- Apply enhancement after creation if not base
+                if mod.config.give_card_enhancement and mod.config.give_card_enhancement ~= 'base' and G.P_CENTERS[mod.config.give_card_enhancement] then
+                    card:set_ability(G.P_CENTERS[mod.config.give_card_enhancement])
+                end
+                
                 -- Apply seal if not none
                 if mod.config.give_card_seal and mod.config.give_card_seal ~= 'none' then
                     card.seal = mod.config.give_card_seal
@@ -2149,6 +2252,8 @@ G.FUNCS.cs_give_configured_card = function(e)
                 if mod.config.give_card_edition and mod.config.give_card_edition ~= 'base' then
                     card:set_edition({[mod.config.give_card_edition] = true})
                 end
+                
+                -- Lucky cards don't need special handling - the game handles them automatically
                 
                 -- Add to playing cards list
                 card:add_to_deck()

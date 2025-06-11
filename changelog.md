@@ -2,6 +2,71 @@
 
 All notable changes to ZokersModMenu will be documented in this file.
 
+## [1.5.0] - 2025-06-11
+
+### 🆕 New Features
+  - Press C or go to steammodded config to toggle the menu
+  - Helpful for users who have C key bound to other functions
+  - Both work identically and can be used interchangeably
+- **Multiple Access Methods**: Now 4 ways to open the menu:
+  1. Press C key (traditional)
+  2. Go to Steammodded Config in-game
+  3. Type `cs_open()` in console
+
+### 🛡️ Stability & Error Handling
+- **Enhanced Crash Prevention**: Comprehensive error handling system
+  - Protected all critical functions with pcall wrappers
+  - Safe fallbacks for missing or nil values
+  - Graceful recovery from unexpected game states
+- **Metadata Fix**: Added missing "id" field to manifest.json
+  - Fixes "invalid metadata" error in mod loaders
+  - Improves compatibility with Steamodded and other loaders
+- **Nil Reference Protection**: Added safety checks throughout
+  - Prevents crashes when game objects are unexpectedly nil
+  - Safe handling of missing jokers/vouchers/cards
+  - Protected menu creation and updates
+
+### 🔧 Technical Improvements
+- **Error Recovery System**: Mod continues functioning even after errors
+  - Non-critical errors are logged but don't crash the mod
+  - Menu remains accessible even if some features fail
+  - Automatic recovery attempts for common issues
+- **Improved Mod Detection**: Better handling of Steamodded variations
+  - Works with different Steamodded versions
+  - Fallback methods for mod instance detection
+  - Compatible with various mod manager setups
+- **Safe State Management**: Protected game state modifications
+  - Validates game state before applying changes
+  - Prevents corruption of save data
+  - Safe handling of mid-game modifications
+
+### 🐛 Bug Fixes
+- **Fixed Mod Loader Errors**: Resolved "id" field missing in metadata
+- **Fixed Crash on Missing Objects**: Added nil checks for all game objects
+- **Fixed Menu Creation Errors**: Protected menu initialization
+- **Fixed Console Command Crashes**: Safe execution of all commands
+
+### 📝 Documentation Updates
+- Added information about F1 key alternative
+- Updated all documentation to reflect v1.5.0
+- Added crash prevention notes to support section
+- Clarified multiple menu access methods
+
+### 🔍 Developer Notes
+- **Error Handling Pattern**: 
+  ```lua
+  local success, result = pcall(function()
+    -- Protected code here
+  end)
+  if not success then
+    -- Graceful fallback
+  end
+  ```
+- **Menu Access Keys**: Both C and F1 use same toggle function
+- **Metadata Structure**: manifest.json now includes required "id" field
+
+---
+
 ## [1.4.8] - 2025-06-09
 
 ### 🐛 Critical Bug Fixes
@@ -207,8 +272,9 @@ All notable changes to ZokersModMenu will be documented in this file.
 - [ ] Challenge mode customization
 - [ ] Seed manipulation tools
 - [ ] Statistics tracking
+- [ ] Additional hotkeys for specific functions
 
-### Known Issues (v1.4.8)
+### Known Issues (v1.5.0)
 - [ ] UI may briefly flicker when giving cards (cosmetic only)
 - [ ] Some voucher effects may require shop refresh to fully apply
 - [ ] Enhancement/seal display may not update immediately in deck builder
