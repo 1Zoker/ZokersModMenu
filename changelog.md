@@ -2,6 +2,78 @@
 
 All notable changes to ZokersModMenu will be documented in this file.
 
+## [2.0.0] - 2025-06-14
+
+### 🎉 Major Release - Complete Overhaul
+
+### 🆕 New Features
+- **Starting Tags System**: Brand new tag selection interface
+  - Select any tags to start your run with
+  - Full pagination support for all available tags
+  - Color-coded selection with purple highlighting
+  - Tags applied automatically at game start
+  - Console commands: `cs_add_tag()`, `cs_list_tags()`
+  
+- **Mod Toggle in Config**: Added enable/disable functionality
+  - Checkbox in Steamodded config to enable/disable mod
+  - Visual feedback: White checkbox with black outline when enabled
+  - Grey checkbox when disabled
+  - Text changes between "Enabled" and "Disabled"
+  - Settings preserved even when disabled
+
+### 🔧 Major Improvements
+- **Enhanced Deck Builder**: Complete rewrite of deck system
+  - Support for multiple cards with different properties
+  - Each card stores its own enhancement/seal/edition
+  - Visual feedback shows count for each card configuration
+  - Fixed legacy deck conversion issues
+  - Proper card data structure with all properties
+
+- **Joker System Fixes**: Resolved all joker-related errors
+  - Fixed `j_caino` displaying as "Canio" in menu
+  - Fixed `j_golden_ticket` to display as "Golden Ticket"
+  - Fixed `j_gluttonous_joker` (was using wrong key)
+  - Removed non-existent `tag_blind` from tags list
+  - Improved error handling for missing jokers
+
+### 🛡️ Stability & Performance
+- **Ante Scaling Optimization**: Fixed excessive console logging
+  - Ante scaling now only logs once at game start
+  - Removed redundant scaling applications
+  - Cleaner console output for debugging
+
+- **Achievement Preservation**: Unlock function improved
+  - No longer disables achievements when unlocking content
+  - Removed `all_unlocked` flag that triggered achievement disable
+  - Maintains game integrity while unlocking items
+
+### 🎨 UI/UX Enhancements
+- **Improved Checkbox Design**: Better visual feedback
+  - White background with black outline when enabled
+  - Grey background when disabled
+  - Clear "Enabled"/"Disabled" text labels
+  - Consistent styling across all toggles
+
+- **Menu Organization**: Cleaner layout and navigation
+  - Tags menu integrated into Starting Items section
+  - Better button spacing and alignment
+  - Consistent color scheme throughout
+
+### 🐛 Bug Fixes
+- Fixed crash when transitioning between rounds
+- Fixed duplicate ante scaling applications
+- Fixed give card errors with proper nil checks
+- Fixed menu refresh issues after giving items
+- Fixed config save/load reliability
+- Removed problematic `tag_blind` causing errors
+- Fixed all joker naming inconsistencies
+
+### 📝 Code Quality
+- **Better Error Messages**: More descriptive error outputs
+- **Improved Logging**: Cleaner, more useful debug information
+- **Code Organization**: Better function grouping and comments
+- **Memory Management**: Reduced redundant operations
+
 ## [1.5.0] - 2025-06-11
 
 ### 🆕 New Features
@@ -130,7 +202,7 @@ All notable changes to ZokersModMenu will be documented in this file.
 - **Give System**: Full implementation of item giving during runs
   - Give Money with multiple denominations
   - Give Cards with full customization
-  - Give Jokers (vanilla and Mika's)
+  - Give Jokers
   - Give Consumables (Tarot, Planet, Spectral)
   - Give Vouchers with immediate effect
 - **Hand Levels**: Added starting hand level customization (1-100)
@@ -227,22 +299,12 @@ All notable changes to ZokersModMenu will be documented in this file.
 
 ## [1.1.0] - 2025-06-06
 
-### 🆕 Major Features Added
-- **Increased Joker Limit**: You can now select up to **20 copies** of the same joker (increased from 10)
-- **Mika's Mod Collection Integration**: Full compatibility with Mika's Mod Collection
-  - Automatic detection of Mika's Mod Collection
-  - Dedicated "Mika's Jokers" tab when mod is available
-  - Over 60 Mika's jokers supported
-  - Same 20-copy limit applies to Mika's jokers
-
 ### 🎨 UI/UX Improvements
 - **Enhanced Color Coding**: New joker count visualization system
   - Green: 1-9 copies
   - Gold: 10-19 copies  
   - Red: 20+ copies (maximum)
-- **Dynamic Menu**: Mika's Jokers button appears automatically when mod is detected
-- **Separate Pagination**: Independent page tracking for vanilla and Mika's jokers
-- **Improved Button Colors**: Mika's button uses distinctive pink theme
+- **Separate Pagination**: Independent page tracking for vanilla jokers
 
 ---
 

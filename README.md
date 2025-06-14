@@ -1,158 +1,82 @@
-# ZokersModMenu v1.5.0
+# ZokersModMenu v2.0.0
 
-A comprehensive customization mod for Balatro that allows you to modify starting conditions, build custom decks, select starting jokers and vouchers, and much more. Compatible with Mika's Mod Collection for expanded joker selection.
+The ultimate customization mod for Balatro. Modify everything: starting conditions, deck composition, items, money, ante scaling, and more. Give yourself any item during runs, build custom decks with multiple card variations, and start with any combination of jokers, vouchers, and tags.
 
-## 🆕 What's New in v1.5.0
-- **Multiple Access Methods**: Press C or go to steammodded config to open the menu - better accessibility!
-- **Enhanced Stability**: Improved crash prevention and error handling
-- **Fixed Metadata**: Resolved mod loader compatibility issues
-- **Better Error Recovery**: Graceful handling of edge cases
+## 🆕 What's New in v2.0.0
+- **Starting Tags System**: Select any tags to start your run with
+- **Mod Disable Toggle**: Enable/disable the mod from Steamodded config
+- **Enhanced Deck Builder**: Support for multiple cards with different enhancements/seals/editions
+- **Improved Stability**: Fixed crashes, errors, and compatibility issues
+- **Better UI**: Improved checkbox styling with proper enable/disable states
 
 ## Features
 
-### 🎮 Core Customization
-- **Starting Money**: Adjust your starting cash from $0 to $5000
-- **Starting Hands**: Set hands per round (1-25)
-- **Starting Discards**: Configure discards per round (0-25)
-- **Hand Size**: Customize hand size from 1-50 cards
-- **Hand Levels**: Set starting level for all poker hands (1-100)
+### 🎮 Complete Game Customization
+- **Starting Stats**: Money ($0-5000), Hands (1-25), Discards (0-25), Hand Size (1-50)
+- **Poker Hands**: Set starting level for all hands (1-100)
+- **Slots**: Joker slots (0-100), Consumable slots (0-15)
+- **Ante Scaling**: Modify blind chip requirements (1x, 1.5x, 2x, 3x, 5x)
 - **Free Rerolls**: Toggle unlimited shop rerolls
-- **Joker Slots**: Modify joker capacity (0-100)
-- **Consumable Slots**: Adjust consumable capacity (0-15)
 
 ### 🃏 Advanced Deck Builder
-- **Custom Deck Creation**: Build decks with up to 104 cards
-- **Enhanced Cards**: Add enhancements (Bonus, Mult, Wild, Glass, Steel, Stone, Gold, Lucky)
-- **Sealed Cards**: Apply seals (Gold, Red, Blue, Purple)
-- **Card Editions**: Apply editions (Foil, Holographic, Polychrome)
-- **Smart Card Addition**: Cards inherit current enhancement/seal/edition settings
-- **Deck Management**: Save and load custom deck configurations
-- **Standard Templates**: Quick-create standard 52-card decks
-- **Proper Card Format**: Uses correct Balatro card IDs (H_2, S_A, etc.)
+- **Multi-Enhancement Support**: Each card can have unique enhancement/seal/edition
+- **Card Properties**: 
+  - Enhancements: Bonus, Mult, Wild, Glass, Steel, Stone, Gold, Lucky
+  - Seals: Gold, Red, Blue, Purple
+  - Editions: Foil, Holographic, Polychrome
+- **Deck Templates**: Quick-create standard 52-card decks
+- **Visual Feedback**: Color-coded card counts show deck composition
 
-### 🎯 Give System
-- **Give Items During Runs**: Enable/disable giving items while playing
-- **Give Money**: Add $10, $50, $100, or $1000 instantly
-- **Give Cards**: Create any playing card with custom properties
-  - Choose rank and suit
-  - Apply any enhancement
-  - Apply any seal
-  - Apply any edition
-  - Smart placement: Cards go to hand during rounds, deck when in shop
-- **Give Jokers**: Instantly add any joker (vanilla or Mika's)
-- **Give Consumables**: Add Tarot, Planet, or Spectral cards
-- **Give Vouchers**: Apply any voucher effect immediately
+### 🎁 Starting Items Selection
+- **Jokers**: Select up to 30 copies of any joker
+- **Vouchers**: Choose any vouchers to start with
+- **Tags**: Pick starting tags for strategic advantages
+- **Persistent Settings**: Items apply to new runs only
 
-### 🃏 Joker Selection
-- **Starting Jokers**: Choose up to **30 copies** of any joker
-- **Vanilla Jokers**: All base game jokers available
-- **Mika's Integration**: Automatic detection and support for Mika's Mod Collection jokers
-- **Smart UI**: Color-coded selection (Green: 1-9, Gold: 10-19, Orange: 20-29, Red: 30)
-- **Tabbed Interface**: Separate tabs for vanilla and Mika's jokers
-
-### 🎫 Voucher Selection
-- **Starting Vouchers**: Select any vouchers to start with
-- **All Vouchers Available**: Choose from 32 different vouchers
-- **Easy Toggle**: Click to add/remove vouchers
-- **Persistent Selection**: Vouchers are applied to new games only
+### 💰 Give System (During Runs)
+- **Money**: Add $10, $50, $100, $1000, or infinite money
+- **Cards**: Create any playing card with custom properties
+- **Jokers**: Instantly add any joker to your collection
+- **Consumables**: Give yourself Tarot, Planet, or Spectral cards
+- **Vouchers**: Apply voucher effects immediately
+- **Tags**: Add tags during gameplay
 
 ### 🔧 Advanced Features
-- **Modern UI**: Clean interface with contemporary styling
-- **Multiple Access Keys**: Press 'C' or 'F1' to open/close menu
-- **Non-Intrusive Toggle**: Menu doesn't affect other game menus
-- **Hold-to-Repeat**: Hold +/- buttons for fast value changes
-- **Optional Custom Decks**: Custom decks are disabled by default - enable when ready
-- **Enhanced Stability**: Improved crash prevention and error handling
-- **New Game Only**: Settings only apply to new games, not loaded saves
-- **Legacy Conversion**: Automatically converts old deck formats
-- **Console Commands**: Full console integration for precise control
-- **Persistent Storage**: Save deck configurations and settings
+- **Mod Toggle**: Enable/disable from Steamodded config
+- **Multiple Access**: Press 'C' or use Steamodded config menu
+- **Smart Placement**: Cards go to hand/deck based on game state
+- **Console Commands**: Full scripting support via F7 console
+- **Unlock All**: Unlock all content without disabling achievements
 
 ## Installation
 
-### Requirements
-- **Steamodded**: Version 0.9.8 or higher (auto-installed via dependency)
-- **Optional**: Mika's Mod Collection (for expanded joker selection)
-
-### Steps
-1. Download the mod files
+1. Ensure Steamodded 0.9.8+ is installed
 2. Place `ZokersModMenu.lua` in your Balatro mods folder
-3. If using Lovely injector, include the `lovely.toml` file
-4. Launch Balatro and enjoy!
+3. Launch Balatro and press 'C' or go to Steamodded config
 
-## Usage
+## Usage Guide
 
 ### Opening the Menu
-- **Primary Keybind**: Press `C` anywhere in the game
-- **Alternative Keybind**: Press `F1` anywhere in the game (NEW!)
-- **Pause Menu**: Click "Zoker's Menu" button in pause menu
-- **Console**: Type `cs_open()` in the developer console (F7)
+- Press `C` anywhere in game
+- Go to Steamodded config → ZokersModMenu → Open Mod Menu
+- Click "Zoker's Menu" in pause menu
 
-### Navigation
-- **Starting Stats**: Adjust starting conditions and slots
-- **Starting Items**: Select starting jokers and vouchers
-- **Build Deck**: Create and customize your deck
-- **Give**: Give yourself items during runs (when enabled)
-- **Console**: Access quick commands
-
-### Menu Controls
-- **Toggle Features**: Click YES/NO buttons to enable/disable features
-- **During Runs**: Some options are locked during active runs
-- **Hold Buttons**: Hold +/- for rapid value changes
-- **Tab Navigation**: Click tabs to switch between sections
+### Key Features
+1. **Enable/Disable Mod**: Use checkbox in Steamodded config
+2. **Starting Stats**: Configure all starting conditions
+3. **Starting Items**: Select jokers, vouchers, and tags
+4. **Build Deck**: Create custom decks with varied cards
+5. **Give Items**: Enable to add items during runs
 
 ### Console Commands
-
-#### Basic Configuration
 ```lua
-cs_money(100)          -- Set starting money to $100 (0-5000)
-cs_hands(8)            -- Set starting hands to 8 (1-25)
-cs_discards(6)         -- Set starting discards to 6 (0-25)
-cs_hand_size(12)       -- Set hand size to 12 cards (1-50)
-cs_hand_levels(3)      -- Set all poker hands to level 3 (1-100)
-cs_free_rerolls(true)  -- Enable free rerolls
-cs_slots(10)           -- Set joker slots to 10
-cs_consumables(5)      -- Set consumable slots to 5
-```
-
-#### Joker & Voucher Management
-```lua
-cs_add_joker('credit_card')      -- Add Credit Card joker
-cs_add_voucher('overstock_norm') -- Add Overstock voucher
-cs_list_jokers()                 -- List all available jokers
-cs_list_vouchers()               -- List all available vouchers
-cs_show()                        -- Show current settings
-```
-
-#### Deck Management
-```lua
-cs_name_deck('My Deck')       -- Name current deck
-cs_save_current_deck()        -- Save current deck
-cs_load_deck('My Deck')       -- Load saved deck
-cs_enable_custom_deck()       -- Enable custom deck for games
-cs_disable_custom_deck()      -- Use default deck
-cs_remove_card('AS')          -- Remove Ace of Spades
-```
-
-#### Utility
-```lua
-cs_open()     -- Open the mod menu
-cs_show()     -- Display all current settings
-```
-
-## Compatibility
-
-### Mika's Mod Collection Integration
-When Mika's Mod Collection is detected, ZokersModMenu automatically:
-- Adds a "Mika's" tab to the joker selection menu
-- Includes all Mika's jokers in the selection pool
-- Maintains the same 30-copy limit for Mika's jokers
-- Provides seamless integration with existing functionality
-
-### Known Issues
-- UI may briefly flicker when giving cards (cosmetic only)
-- Some voucher effects may require a shop refresh to fully apply
-
+cs_money(100)          -- Set starting money
+cs_hands(8)            -- Set starting hands
+cs_hand_size(12)       -- Set hand size
+cs_add_joker('j_joker')    -- Add joker to starting items
+cs_add_voucher('v_blank')  -- Add voucher
+cs_add_tag('tag_charm')    -- Add starting tag
+cs_unlock_all()        -- Unlock everything
 ## Tips & Tricks
 
 ### Efficient Deck Building
@@ -215,7 +139,6 @@ The mod now includes enhanced error handling:
 ## Credits
 
 - **Author**: Zoker
-- **Special Thanks**: Mika (Mikadoe) for the amazing Mika's Mod Collection
 - **Community**: Balatro modding community for testing and feedback
 
 ---

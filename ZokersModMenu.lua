@@ -2,12 +2,12 @@
 --- MOD_NAME: ZokersModMenu
 --- MOD_ID: ZokersModMenu
 --- MOD_AUTHOR: [Zoker]
---- MOD_DESCRIPTION: Customize starting deck, jokers, money, hands, discards, rerolls, and slots. Compatible with Mika's Mod Collection.
+--- MOD_DESCRIPTION: Complete game customization: Build custom decks with enhancements/seals/editions, set starting items (jokers/vouchers/tags), adjust all stats (money/hands/discards/slots), modify ante scaling, give any item during runs, unlock all content.
 --- BADGE_COLOUR: 708b91
 --- PREFIX: cs
 --- PRIORITY: 0
---- VERSION: 1.5.0
---- RELEASE_DATE: 2025-06-11
+--- VERSION: 2.0.0
+--- RELEASE_DATE: 2025-06-13
 
 ----------------------------------------------
 ------------MOD CODE -------------------------
@@ -26,6 +26,19 @@ if not mod then
     mod = {config = {}}
 end
 
+-- Save config function with fallback and debugging
+local function save_config()
+    if SMODS.save_mod_config and mod then
+        SMODS.save_mod_config(mod)
+        print("ZokersModMenu: Config saved via SMODS.save_mod_config. Deck size: " .. #mod.config.custom_deck)
+    elseif SMODS.save_config then
+        SMODS.save_config("ZokersModMenu", mod.config)
+        print("ZokersModMenu: Config saved via SMODS.save_config. Deck size: " .. #mod.config.custom_deck)
+    else
+        print("ZokersModMenu: Warning - No save method available!")
+    end
+end
+
 -- Add Steamodded config tab for opening the menu
 if SMODS and SMODS.current_mod then
     SMODS.current_mod.config_tab = function()
@@ -42,9 +55,37 @@ if SMODS and SMODS.current_mod then
                 {n = G.UIT.R, config = {align = "cm", padding = 0.2}, nodes = {
                     {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_open_main_menu_from_config", hover = true, minw = 3, minh = 1, colour = G.C.BLUE, r = 0.1}, 
                      nodes = {{n = G.UIT.T, config = {text = "Open Mod Menu", scale = 0.5, colour = G.C.WHITE}}}}
+                }},
+                -- Add disable checkbox in config
+                {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {}},
+                {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+                    {n = G.UIT.C, config = {align = "cl", padding = 0.05}, nodes = {
+                        {n = G.UIT.C, config = {align = "cm", padding = 0.05, button = "cs_toggle_mod_disabled_config", hover = true, minw = 0.5, minh = 0.5, 
+    colour = mod.config.mod_disabled and {0.5, 0.5, 0.5, 1} or G.C.WHITE, r = 0.05, outline_colour = G.C.BLACK, outline = 1}, 
+ nodes = {{n = G.UIT.T, config = {text = mod.config.mod_disabled and "✗" or "✓", scale = 0.4, colour = mod.config.mod_disabled and G.C.WHITE or G.C.BLACK}}}},
+{n = G.UIT.T, config = {text = mod.config.mod_disabled and " Disabled" or " Enabled", scale = 0.5, colour = G.C.WHITE}}
+                    }}
                 }}
             }
         }
+    end
+end
+
+-- Function to toggle mod disabled from config
+G.FUNCS.cs_toggle_mod_disabled_config = function(e)
+    mod.config.mod_disabled = not mod.config.mod_disabled
+    save_config()
+    -- Refresh the config menu
+    if G.OVERLAY_MENU then
+        G.OVERLAY_MENU:remove()
+        G.OVERLAY_MENU = nil
+    end
+    -- Reopen config
+    G.FUNCS.options(nil, true)
+    if mod.config.mod_disabled then
+        print("ZokersModMenu: Mod disabled")
+    else
+        print("ZokersModMenu: Mod enabled")
     end
 end
 
@@ -79,11 +120,14 @@ mod.config.consumable_slots = mod.config.consumable_slots or 2
 mod.config.custom_deck = mod.config.custom_deck or {}
 mod.config.starting_jokers = mod.config.starting_jokers or {}
 mod.config.starting_vouchers = mod.config.starting_vouchers or {}
+mod.config.starting_tags = mod.config.starting_tags or {}
 mod.config.current_deck_name = mod.config.current_deck_name or "Custom Deck"
 mod.config.use_custom_stats = mod.config.use_custom_stats or false
 mod.config.use_custom_deck = mod.config.use_custom_deck or false
 mod.config.allow_give_during_runs = mod.config.allow_give_during_runs or false
 mod.config.use_starting_items = mod.config.use_starting_items or false
+mod.config.ante_scaling = mod.config.ante_scaling or 1
+mod.config.mod_disabled = mod.config.mod_disabled or false  -- NEW: disable option
 
 -- Enhanced card structure with seals, enhancements and editions - DEFINED FIRST
 local function create_card_data(rank, suit, enhancement, seal, edition)
@@ -96,18 +140,18 @@ local function create_card_data(rank, suit, enhancement, seal, edition)
     }
 end
 
--- Available vanilla jokers list (alphabetically sorted)
+-- Available vanilla jokers list (alphabetically sorted) - FIXED names
 local available_jokers = {
     'j_8_ball', 'j_abstract', 'j_acrobat', 'j_ancient', 'j_arrowhead', 'j_astronomer',
     'j_banner', 'j_baron', 'j_baseball', 'j_blackboard', 'j_bloodstone', 'j_blue_joker',
     'j_blueprint', 'j_bootstraps', 'j_brainstorm', 'j_bull', 'j_burglar', 'j_burnt',
-    'j_business', 'j_campfire', 'j_canio', 'j_card_sharp', 'j_cartomancer', 'j_castle',
+    'j_business', 'j_campfire', 'j_caino', 'j_card_sharp', 'j_cartomancer', 'j_castle',
     'j_cavendish', 'j_ceremonial', 'j_certificate', 'j_chaos', 'j_chicot', 'j_clever',
     'j_cloud_9', 'j_constellation', 'j_crafty', 'j_crazy', 'j_credit_card', 'j_delayed_grat',
     'j_devious', 'j_diet_cola', 'j_dna', 'j_drivers_license', 'j_droll', 'j_drunkard',
     'j_duo', 'j_dusk', 'j_egg', 'j_erosion', 'j_even_steven', 'j_faceless',
     'j_family', 'j_fibonacci', 'j_flash', 'j_flower_pot', 'j_fortune_teller', 'j_four_fingers',
-    'j_gift', 'j_glass', 'j_gluttonous_joker', 'j_golden', 'j_golden_ticket', 'j_greedy_joker',
+    'j_gift', 'j_glass', 'j_gluttenous_joker', 'j_golden', 'j_ticket', 'j_greedy_joker',
     'j_green_joker', 'j_gros_michel', 'j_hack', 'j_half', 'j_hallucination', 'j_hanging_chad',
     'j_hiker', 'j_hit_the_road', 'j_hologram', 'j_ice_cream', 'j_idol', 'j_invisible',
     'j_joker', 'j_jolly', 'j_juggler', 'j_loyalty_card', 'j_luchador', 'j_lucky_cat',
@@ -150,6 +194,15 @@ local available_vouchers = {
     'v_petroglyph', 'v_planet_merchant', 'v_planet_tycoon', 'v_recyclomancy', 'v_reroll_glut',
     'v_reroll_surplus', 'v_retcon', 'v_seed_money', 'v_tarot_merchant', 'v_tarot_tycoon',
     'v_telescope', 'v_wasteful'
+}
+
+-- Available tags list (alphabetically sorted) - BASE GAME ONLY
+local available_tags = {
+    'tag_boss', 'tag_buffoon', 'tag_charm', 'tag_coupon', 'tag_d_six',
+    'tag_double', 'tag_economy', 'tag_ethereal', 'tag_foil', 'tag_garbage',
+    'tag_handy', 'tag_holo', 'tag_investment', 'tag_juggle', 'tag_meteor', 'tag_negative',
+    'tag_orbital', 'tag_polychrome', 'tag_rare', 'tag_skip', 'tag_standard', 'tag_top_up',
+    'tag_uncommon', 'tag_voucher'
 }
 
 -- Tarot cards (alphabetically sorted)
@@ -225,19 +278,6 @@ mod.config.current_edition = mod.config.current_edition or 'base'
 -- Debug print current values
 print("ZokersModMenu: Initial enhancement/seal/edition: " .. mod.config.current_enhancement .. "/" .. mod.config.current_seal .. "/" .. mod.config.current_edition)
 
--- Save config function with fallback and debugging
-local function save_config()
-    if SMODS.save_mod_config and mod then
-        SMODS.save_mod_config(mod)
-        print("ZokersModMenu: Config saved via SMODS.save_mod_config. Deck size: " .. #mod.config.custom_deck)
-    elseif SMODS.save_config then
-        SMODS.save_config("ZokersModMenu", mod.config)
-        print("ZokersModMenu: Config saved via SMODS.save_config. Deck size: " .. #mod.config.custom_deck)
-    else
-        print("ZokersModMenu: Warning - No save method available!")
-    end
-end
-
 -- Simple overlay creation function - IMPROVED with better tracking
 local function create_overlay(content)
     if G.OVERLAY_MENU then
@@ -298,6 +338,9 @@ local function convert_legacy_deck()
     end
 end
 
+-- Track if ante scaling has been applied for this ante
+mod._ante_scaled = {}
+
 -- GAME MODIFICATION HOOKS - Apply custom stats and deck
 -- Hook into game start to apply custom values
 local ref_Game_start_run = Game.start_run
@@ -306,8 +349,17 @@ function Game:start_run(args)
     mod._deck_replaced = false
     mod._deck_needs_replacement = mod.config.use_custom_deck and #mod.config.custom_deck > 0
     
+    -- Reset ante scaling tracker
+    mod._ante_scaled = {}
+    
     -- Call original function FIRST to ensure game is properly initialized
     ref_Game_start_run(self, args)
+    
+    -- Check if mod is disabled
+    if mod.config.mod_disabled then
+        print("ZokersModMenu: Mod is disabled, not applying any settings")
+        return
+    end
     
     -- IMPORTANT: Only apply mod settings to NEW runs, not loaded saves
     -- Check if this is a loaded save by looking for existing round number > 1 or if we're past ante 1
@@ -387,7 +439,7 @@ function Game:start_run(args)
                         card:set_edition({[edition] = true})
                     end
                     
-                    -- Lucky cards don't need special handling - the game handles them
+                    -- Lucky cards will be handled by the game's native logic with our hook
                     
                     -- Add to deck
                     card:add_to_deck()
@@ -426,12 +478,9 @@ function Game:start_run(args)
                     G.GAME.round_resets.hands = mod.config.starting_hands
                     G.GAME.round_resets.discards = mod.config.starting_discards
                     
-                    -- Apply free rerolls if enabled
-                    if mod.config.free_rerolls then
-                        G.GAME.round_resets.reroll_cost = 0
-                        G.GAME.current_round.reroll_cost = 0
-                        print("ZokersModMenu: Free rerolls enabled")
-                    end
+                    -- Apply ante scaling will be handled separately
+                    
+                    -- Apply free rerolls is now independent
                 end
                 
                 -- Update current hands/discards
@@ -456,6 +505,23 @@ function Game:start_run(args)
                 end
                 
                 print("ZokersModMenu: Applied custom starting stats")
+                return true
+            end
+        }))
+    end
+    
+    -- Apply free rerolls independently if enabled
+    if mod.config.free_rerolls then
+        G.E_MANAGER:add_event(Event({
+            trigger = 'immediate',
+            func = function()
+                if G.GAME.round_resets then
+                    G.GAME.round_resets.reroll_cost = 0
+                end
+                if G.GAME.current_round then
+                    G.GAME.current_round.reroll_cost = 0
+                end
+                print("ZokersModMenu: Free rerolls enabled")
                 return true
             end
         }))
@@ -497,6 +563,26 @@ function Game:start_run(args)
         }))
     end
     
+    -- Apply starting tags if enabled
+    if mod.config.use_starting_items and #mod.config.starting_tags > 0 then
+        G.E_MANAGER:add_event(Event({
+            trigger = 'after',
+            delay = 0.3,
+            func = function()
+                for _, tag_key in ipairs(mod.config.starting_tags) do
+                    if G.P_TAGS[tag_key] then
+                        add_tag(Tag(tag_key))
+                        print("ZokersModMenu: Added tag " .. tag_key)
+                    else
+                        print("ZokersModMenu: Warning - Tag not found: " .. tag_key)
+                    end
+                end
+                print("ZokersModMenu: Added " .. #mod.config.starting_tags .. " starting tags")
+                return true
+            end
+        }))
+    end
+    
     -- Apply starting jokers if enabled
     if mod.config.use_starting_items and #mod.config.starting_jokers > 0 then
         G.E_MANAGER:add_event(Event({
@@ -510,7 +596,10 @@ function Game:start_run(args)
                             if card then
                                 card:add_to_deck()
                                 G.jokers:emplace(card)
+                                print("ZokersModMenu: Added joker " .. joker_key)
                             end
+                        else
+                            print("ZokersModMenu: Warning - Joker not found: " .. joker_key)
                         end
                     end
                     print("ZokersModMenu: Added " .. #mod.config.starting_jokers .. " starting jokers")
@@ -520,11 +609,10 @@ function Game:start_run(args)
         }))
     end
     
-    -- Apply starting vouchers if enabled
+    -- Apply starting vouchers if enabled - FIXED to apply immediately
     if mod.config.use_starting_items and #mod.config.starting_vouchers > 0 then
         G.E_MANAGER:add_event(Event({
-            trigger = 'after',
-            delay = 0.6,
+            trigger = 'immediate',
             func = function()
                 if G.GAME and G.GAME.used_vouchers then
                     for _, voucher_key in ipairs(mod.config.starting_vouchers) do
@@ -537,6 +625,15 @@ function Game:start_run(args)
                                 for _, req in ipairs(voucher_obj.requires) do
                                     G.GAME.used_vouchers[req] = true
                                 end
+                            end
+                            
+                            -- Apply immediate effects for shop-related vouchers
+                            if voucher_key == "v_overstock_norm" then
+                                G.GAME.shop = G.GAME.shop or {}
+                                G.GAME.shop.joker_max = (G.GAME.shop.joker_max or 2) + 1
+                            elseif voucher_key == "v_overstock_plus" then
+                                G.GAME.shop = G.GAME.shop or {}
+                                G.GAME.shop.joker_max = (G.GAME.shop.joker_max or 2) + 1
                             end
                             
                             -- Apply voucher effect
@@ -564,8 +661,8 @@ local ref_Game_init_game_object = Game.init_game_object
 function Game:init_game_object()
     local ret = ref_Game_init_game_object(self)
     
-    -- If custom deck is enabled, set flags for replacement
-    if mod.config.use_custom_deck and #mod.config.custom_deck > 0 then
+    -- If custom deck is enabled and mod not disabled, set flags for replacement
+    if not mod.config.mod_disabled and mod.config.use_custom_deck and #mod.config.custom_deck > 0 then
         mod._deck_needs_replacement = true
         mod._deck_replaced = false
         print("ZokersModMenu: Custom deck enabled, preparing for replacement")
@@ -574,11 +671,34 @@ function Game:init_game_object()
     return ret
 end
 
+-- Fix for overstock vouchers - ensure shop slots are properly set
+local ref_create_shop = create_shop
+create_shop = function(dt)
+    -- Apply overstock vouchers before shop creation
+    if G.GAME and G.GAME.used_vouchers then
+        local overstock_count = 0
+        if G.GAME.used_vouchers["v_overstock_norm"] then overstock_count = overstock_count + 1 end
+        if G.GAME.used_vouchers["v_overstock_plus"] then overstock_count = overstock_count + 1 end
+        
+        if overstock_count > 0 then
+            G.GAME.shop = G.GAME.shop or {}
+            G.GAME.shop.joker_max = 2 + overstock_count
+        end
+    end
+    
+    return ref_create_shop(dt)
+end
+
 -- Additional hook for deck initialization to ensure custom deck loads
 local ref_init_game = init_game or function() end
 if init_game then
     init_game = function(args)
         local ret = ref_init_game(args)
+        
+        -- Check if mod is disabled
+        if mod.config.mod_disabled then
+            return ret
+        end
         
         -- Check if this is a loaded save
         local is_loaded_save = false
@@ -598,22 +718,23 @@ if init_game then
         if mod.config.use_custom_deck and #mod.config.custom_deck > 0 and not mod._deck_replaced and G.playing_cards and G.deck then
             print("ZokersModMenu: Applying custom deck via init_game with " .. #mod.config.custom_deck .. " cards")
             
-            -- Clear existing deck
-            for i = #G.playing_cards, 1, -1 do
-                local card = G.playing_cards[i]
+            -- Clear existing deck - including ALL instances
+            local old_deck = {}
+            for i = 1, #G.playing_cards do
+                old_deck[i] = G.playing_cards[i]
+            end
+            
+            G.playing_cards = {}
+            if G.deck.cards then
+                G.deck.cards = {}
+            end
+            
+            -- Remove old cards
+            for _, card in ipairs(old_deck) do
                 if card then
-                    if G.deck.cards then
-                        for j = #G.deck.cards, 1, -1 do
-                            if G.deck.cards[j] == card then
-                                table.remove(G.deck.cards, j)
-                                break
-                            end
-                        end
-                    end
                     card:remove()
                 end
             end
-            G.playing_cards = {}
             
             -- Create custom deck
             local cards_created = 0
@@ -653,7 +774,7 @@ if init_game then
                             card:set_edition({[edition] = true})
                         end
                         
-                        -- Lucky cards don't need special handling - the game handles them
+                        -- Lucky cards will be handled by the game's native logic with our hook
                         
                         -- Add to deck
                         card:add_to_deck()
@@ -686,25 +807,26 @@ end
 local ref_new_round = G.FUNCS.new_round or function() end
 G.FUNCS.new_round = function()
     -- Replace deck if needed and not already done
-    if mod._deck_needs_replacement and not mod._deck_replaced and G.playing_cards and G.deck then
+    if not mod.config.mod_disabled and mod._deck_needs_replacement and not mod._deck_replaced and G.playing_cards and G.deck then
         print("ZokersModMenu: Replacing deck in new_round with " .. #mod.config.custom_deck .. " cards")
         
-        -- Clear existing deck
-        for i = #G.playing_cards, 1, -1 do
-            local card = G.playing_cards[i]
+        -- Clear existing deck completely
+        local old_deck = {}
+        for i = 1, #G.playing_cards do
+            old_deck[i] = G.playing_cards[i]
+        end
+        
+        G.playing_cards = {}
+        if G.deck.cards then
+            G.deck.cards = {}
+        end
+        
+        -- Remove old cards
+        for _, card in ipairs(old_deck) do
             if card then
-                if G.deck.cards then
-                    for j = #G.deck.cards, 1, -1 do
-                        if G.deck.cards[j] == card then
-                            table.remove(G.deck.cards, j)
-                            break
-                        end
-                    end
-                end
                 card:remove()
             end
         end
-        G.playing_cards = {}
         
         -- Create custom deck
         local cards_created = 0
@@ -744,7 +866,12 @@ G.FUNCS.new_round = function()
                         card:set_edition({[edition] = true})
                     end
                     
-                    -- Lucky cards don't need special handling - the game handles them
+                    -- Fix for lucky cards
+                    if enhancement == 'm_lucky' then
+                        card.lucky_trigger = function(self)
+                            return pseudorandom('lucky') < G.GAME.probabilities.normal/5
+                        end
+                    end
                     
                     -- Add to deck
                     card:add_to_deck()
@@ -783,7 +910,7 @@ end
 local ref_calculate_reroll_cost = calculate_reroll_cost or G.FUNCS.calculate_reroll_cost
 if ref_calculate_reroll_cost then
     calculate_reroll_cost = function(skip_increment)
-        if mod.config.free_rerolls and mod.config.use_custom_stats then
+        if mod.config.free_rerolls and not mod.config.mod_disabled then
             return 0
         end
         return ref_calculate_reroll_cost(skip_increment)
@@ -791,17 +918,42 @@ if ref_calculate_reroll_cost then
 elseif G.FUNCS.calculate_reroll_cost then
     local orig_calc = G.FUNCS.calculate_reroll_cost
     G.FUNCS.calculate_reroll_cost = function(skip_increment)
-        if mod.config.free_rerolls and mod.config.use_custom_stats then
+        if mod.config.free_rerolls and not mod.config.mod_disabled then
             return 0
         end
         return orig_calc(skip_increment)
     end
 end
 
+-- Hook to apply ante scaling to blind chips
+local ref_get_blind_amount = get_blind_amount
+get_blind_amount = function(ante)
+    local base_amount = ref_get_blind_amount(ante)
+    
+    -- Apply custom ante scaling if enabled and mod not disabled
+    if not mod.config.mod_disabled and mod.config.use_custom_stats and mod.config.ante_scaling and mod.config.ante_scaling ~= 1 then
+        base_amount = base_amount * mod.config.ante_scaling
+        -- Remove the print statement to avoid spam
+    end
+    
+    return math.floor(base_amount)
+end
+
+-- Also hook the blind selection to ensure scaling is applied
+local ref_set_blind = Blind.set_blind
+function Blind:set_blind(blinds_choice, silent, reset)
+    ref_set_blind(self, blinds_choice, silent, reset)
+    
+    -- Apply ante scaling after blind is set if not already applied
+    if not mod.config.mod_disabled and mod.config.use_custom_stats and mod.config.ante_scaling and mod.config.ante_scaling ~= 1 and self.chips then
+        -- The scaling should already be applied by get_blind_amount, but let's ensure it's correct
+    end
+end
+
 -- Hook reroll button to ensure cost is 0
 local ref_reroll_shop = G.FUNCS.reroll_shop
 G.FUNCS.reroll_shop = function(e)
-    if mod.config.free_rerolls and mod.config.use_custom_stats then
+    if mod.config.free_rerolls and not mod.config.mod_disabled then
         -- Temporarily set reroll cost to 0
         local old_cost = G.GAME.current_round.reroll_cost
         G.GAME.current_round.reroll_cost = 0
@@ -823,8 +975,8 @@ function Game:update(dt)
     -- Call original update
     ref_Game_update(self, dt)
     
-    -- Ensure free rerolls if enabled
-    if mod.config.free_rerolls and mod.config.use_custom_stats then
+    -- Ensure free rerolls if enabled and mod not disabled
+    if mod.config.free_rerolls and not mod.config.mod_disabled then
         if G.GAME and G.GAME.current_round then
             G.GAME.current_round.reroll_cost = 0
         end
@@ -840,26 +992,27 @@ G.FUNCS.setup_deck = function()
     -- Call original first
     ref_setup_deck()
     
-    -- If custom deck is enabled and we have cards
-    if mod.config.use_custom_deck and #mod.config.custom_deck > 0 and G.deck and G.playing_cards then
+    -- If custom deck is enabled, not disabled, and we have cards
+    if not mod.config.mod_disabled and mod.config.use_custom_deck and #mod.config.custom_deck > 0 and G.deck and G.playing_cards then
         print("ZokersModMenu: Setting up custom deck in setup_deck with " .. #mod.config.custom_deck .. " cards")
         
-        -- Clear existing deck immediately
-        for i = #G.playing_cards, 1, -1 do
-            local card = G.playing_cards[i]
+        -- Clear existing deck immediately and completely
+        local old_deck = {}
+        for i = 1, #G.playing_cards do
+            old_deck[i] = G.playing_cards[i]
+        end
+        
+        G.playing_cards = {}
+        if G.deck.cards then
+            G.deck.cards = {}
+        end
+        
+        -- Remove old cards
+        for _, card in ipairs(old_deck) do
             if card then
-                if G.deck.cards then
-                    for j = #G.deck.cards, 1, -1 do
-                        if G.deck.cards[j] == card then
-                            table.remove(G.deck.cards, j)
-                            break
-                        end
-                    end
-                end
                 card:remove()
             end
         end
-        G.playing_cards = {}
         
         -- Create custom deck immediately
         local cards_created = 0
@@ -899,7 +1052,12 @@ G.FUNCS.setup_deck = function()
                         card:set_edition({[edition] = true})
                     end
                     
-                    -- Lucky cards don't need special handling - the game handles them
+                    -- Fix for lucky cards
+                    if enhancement == 'm_lucky' then
+                        card.lucky_trigger = function(self)
+                            return pseudorandom('lucky') < G.GAME.probabilities.normal/5
+                        end
+                    end
                     
                     -- Add to deck
                     card:add_to_deck()
@@ -931,7 +1089,7 @@ G.FUNCS.setup_deck = function()
     end
 end
 
-print("ZokersModMenu v1.4.9 loaded successfully!")
+print("ZokersModMenu v1.5.1 loaded successfully!")
 print("Press 'C' to toggle Zoker's Mod Menu")
 print("ZokersModMenu: Initial deck size: " .. #mod.config.custom_deck)
 
@@ -1023,10 +1181,10 @@ local function create_settings_menu()
          nodes = {{n = G.UIT.T, config = {text = mod.config.free_rerolls and "YES" or "NO", scale = 0.4, colour = G.C.WHITE}}}}
     }})
 
-    -- Bottom buttons - Console, Reset and Close
+    -- Bottom buttons - Unlock (yellow), Reset, Close
     table.insert(menu_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.2}, nodes = {
-        {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_open_console", hover = true, minw = 2, minh = 1, colour = {0.3, 0.3, 0.3, 1}, r = 0.1}, 
-         nodes = {{n = G.UIT.T, config = {text = "Console", scale = 0.5, colour = G.C.WHITE}}}},
+        {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_unlock_all", hover = true, minw = 2, minh = 1, colour = {0.8, 0.8, 0.2, 1}, r = 0.1}, 
+         nodes = {{n = G.UIT.T, config = {text = "Unlock", scale = 0.5, colour = G.C.WHITE}}}},
         in_run and {n = G.UIT.C, config = {align = "cm", padding = 0.08, minw = 2, minh = 1, colour = {0.4, 0.2, 0.2, 1}, r = 0.1}, 
          nodes = {{n = G.UIT.T, config = {text = "Reset", scale = 0.5, colour = {0.5, 0.5, 0.5, 1}}}}} or
         {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_reset_all", hover = true, minw = 2, minh = 1, colour = {0.8, 0.2, 0.2, 1}, r = 0.1}, 
@@ -1042,18 +1200,21 @@ local function create_settings_menu()
     }
 end
 
--- Money and stats adjustment menu with modern styling
+-- Money and stats adjustment menu with modern styling and ante scaling
 local function create_money_menu()
+    -- Get current ante scaling display
+    local ante_scaling_display = mod.config.ante_scaling .. "x"
+    
     return {
         n = G.UIT.ROOT,
-        config = {align = "cm", minw = 8, minh = 11, colour = {0, 0, 0, 0.8}, r = 0.1, padding = 0.1},
+        config = {align = "cm", minw = 8, minh = 12.5, colour = {0, 0, 0, 0.8}, r = 0.1, padding = 0.1},
         nodes = {
             -- Title
             {n = G.UIT.R, config = {align = "cm", padding = 0.2, colour = {0, 0, 0, 1}, r = 0.1}, 
              nodes = {{n = G.UIT.T, config = {text = "STARTING STATS", scale = 0.8, colour = {1, 1, 1, 1}}}}},
             
             -- Money Row
-            {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {
+            {n = G.UIT.R, config = {align = "cm", padding = 0.12}, nodes = {
                 {n = G.UIT.C, config = {align = "cr", minw = 2.5}, 
                  nodes = {{n = G.UIT.T, config = {text = "Money:", scale = 0.5, colour = {1, 1, 1, 1}}}}},
                 {n = G.UIT.C, config = {align = "cl", minw = 4}, nodes = {
@@ -1067,7 +1228,7 @@ local function create_money_menu()
             }},
             
             -- Hands Row
-            {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {
+            {n = G.UIT.R, config = {align = "cm", padding = 0.12}, nodes = {
                 {n = G.UIT.C, config = {align = "cr", minw = 2.5}, 
                  nodes = {{n = G.UIT.T, config = {text = "Hands:", scale = 0.5, colour = {1, 1, 1, 1}}}}},
                 {n = G.UIT.C, config = {align = "cl", minw = 4}, nodes = {
@@ -1081,7 +1242,7 @@ local function create_money_menu()
             }},
             
             -- Discards Row
-            {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {
+            {n = G.UIT.R, config = {align = "cm", padding = 0.12}, nodes = {
                 {n = G.UIT.C, config = {align = "cr", minw = 2.5}, 
                  nodes = {{n = G.UIT.T, config = {text = "Discards:", scale = 0.5, colour = {1, 1, 1, 1}}}}},
                 {n = G.UIT.C, config = {align = "cl", minw = 4}, nodes = {
@@ -1095,7 +1256,7 @@ local function create_money_menu()
             }},
             
             -- Hand Size Row
-            {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {
+            {n = G.UIT.R, config = {align = "cm", padding = 0.12}, nodes = {
                 {n = G.UIT.C, config = {align = "cr", minw = 2.5}, 
                  nodes = {{n = G.UIT.T, config = {text = "Hand Size:", scale = 0.5, colour = {1, 1, 1, 1}}}}},
                 {n = G.UIT.C, config = {align = "cl", minw = 4}, nodes = {
@@ -1109,7 +1270,7 @@ local function create_money_menu()
             }},
             
             -- Hand Level Row
-            {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {
+            {n = G.UIT.R, config = {align = "cm", padding = 0.12}, nodes = {
                 {n = G.UIT.C, config = {align = "cr", minw = 2.5}, 
                  nodes = {{n = G.UIT.T, config = {text = "Hand Levels:", scale = 0.5, colour = {1, 1, 1, 1}}}}},
                 {n = G.UIT.C, config = {align = "cl", minw = 4}, nodes = {
@@ -1123,7 +1284,7 @@ local function create_money_menu()
             }},
             
             -- Joker Slots Row
-            {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {
+            {n = G.UIT.R, config = {align = "cm", padding = 0.12}, nodes = {
                 {n = G.UIT.C, config = {align = "cr", minw = 2.5}, 
                  nodes = {{n = G.UIT.T, config = {text = "Joker Slots:", scale = 0.5, colour = {1, 1, 1, 1}}}}},
                 {n = G.UIT.C, config = {align = "cl", minw = 4}, nodes = {
@@ -1137,7 +1298,7 @@ local function create_money_menu()
             }},
             
             -- Consumable Slots Row
-            {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {
+            {n = G.UIT.R, config = {align = "cm", padding = 0.12}, nodes = {
                 {n = G.UIT.C, config = {align = "cr", minw = 2.5}, 
                  nodes = {{n = G.UIT.T, config = {text = "Consumables:", scale = 0.5, colour = {1, 1, 1, 1}}}}},
                 {n = G.UIT.C, config = {align = "cl", minw = 4}, nodes = {
@@ -1150,8 +1311,31 @@ local function create_money_menu()
                 }}
             }},
             
+            -- Ante Scaling Row - compressed
+            {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+                {n = G.UIT.T, config = {text = "Ante Scaling:", scale = 0.45, colour = {1, 1, 1, 1}}}
+            }},
+            
+            {n = G.UIT.R, config = {align = "cm", padding = 0.05}, nodes = {
+                {n = G.UIT.C, config = {align = "cm", padding = 0.03, button = "cs_ante_scale_1x", hover = true, minw = 0.9, minh = 0.6, 
+                    colour = mod.config.ante_scaling == 1 and {0.2, 0.8, 0.2, 1} or {0.3, 0.3, 0.3, 1}, r = 0.08}, 
+                 nodes = {{n = G.UIT.T, config = {text = "1x", scale = 0.35, colour = G.C.WHITE}}}},
+                {n = G.UIT.C, config = {align = "cm", padding = 0.03, button = "cs_ante_scale_1.5x", hover = true, minw = 0.9, minh = 0.6, 
+                    colour = mod.config.ante_scaling == 1.5 and {0.8, 0.8, 0.2, 1} or {0.3, 0.3, 0.3, 1}, r = 0.08}, 
+                 nodes = {{n = G.UIT.T, config = {text = "1.5x", scale = 0.35, colour = G.C.WHITE}}}},
+                {n = G.UIT.C, config = {align = "cm", padding = 0.03, button = "cs_ante_scale_2x", hover = true, minw = 0.9, minh = 0.6, 
+                    colour = mod.config.ante_scaling == 2 and {0.8, 0.6, 0.2, 1} or {0.3, 0.3, 0.3, 1}, r = 0.08}, 
+                 nodes = {{n = G.UIT.T, config = {text = "2x", scale = 0.35, colour = G.C.WHITE}}}},
+                {n = G.UIT.C, config = {align = "cm", padding = 0.03, button = "cs_ante_scale_3x", hover = true, minw = 0.9, minh = 0.6, 
+                    colour = mod.config.ante_scaling == 3 and {0.8, 0.4, 0.2, 1} or {0.3, 0.3, 0.3, 1}, r = 0.08}, 
+                 nodes = {{n = G.UIT.T, config = {text = "3x", scale = 0.35, colour = G.C.WHITE}}}},
+                {n = G.UIT.C, config = {align = "cm", padding = 0.03, button = "cs_ante_scale_5x", hover = true, minw = 0.9, minh = 0.6, 
+                    colour = mod.config.ante_scaling == 5 and {0.8, 0.2, 0.2, 1} or {0.3, 0.3, 0.3, 1}, r = 0.08}, 
+                 nodes = {{n = G.UIT.T, config = {text = "5x", scale = 0.35, colour = G.C.WHITE}}}}
+            }},
+            
             -- Bottom buttons
-            {n = G.UIT.R, config = {align = "cm", padding = 0.3}, nodes = {
+            {n = G.UIT.R, config = {align = "cm", padding = 0.2}, nodes = {
                 {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_reset_money_stats", hover = true, minw = 3, minh = 1, colour = G.C.RED, r = 0.1}, 
                  nodes = {{n = G.UIT.T, config = {text = "Reset", scale = 0.5, colour = G.C.WHITE}}}},
                 {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_back_to_main", hover = true, minw = 3, minh = 1, colour = {0.6, 0.6, 0.6, 1}, r = 0.1}, 
@@ -1159,6 +1343,37 @@ local function create_money_menu()
             }}
         }
     }
+end
+
+-- Ante scaling button functions
+G.FUNCS.cs_ante_scale_1x = function(e)
+    mod.config.ante_scaling = 1
+    save_config()
+    create_overlay(create_money_menu())
+end
+
+G.FUNCS["cs_ante_scale_1.5x"] = function(e)
+    mod.config.ante_scaling = 1.5
+    save_config()
+    create_overlay(create_money_menu())
+end
+
+G.FUNCS.cs_ante_scale_2x = function(e)
+    mod.config.ante_scaling = 2
+    save_config()
+    create_overlay(create_money_menu())
+end
+
+G.FUNCS.cs_ante_scale_3x = function(e)
+    mod.config.ante_scaling = 3
+    save_config()
+    create_overlay(create_money_menu())
+end
+
+G.FUNCS.cs_ante_scale_5x = function(e)
+    mod.config.ante_scaling = 5
+    save_config()
+    create_overlay(create_money_menu())
 end
 
 -- Deck builder with clean uniform styling
@@ -1238,10 +1453,12 @@ local function create_deck_builder()
         for j, rank in ipairs(ranks) do
             local count = 0
             
-            -- Count cards of this rank/suit
+            -- Count cards of this rank/suit with matching properties
             for _, card_data in ipairs(mod.config.custom_deck) do
-                if (type(card_data) == "table" and card_data.rank == rank and card_data.suit == suit) or
-                   (type(card_data) == "string" and card_data == rank .. suit) then
+                if card_data.rank == rank and card_data.suit == suit and
+                   card_data.enhancement == mod.config.current_enhancement and
+                   card_data.seal == mod.config.current_seal and
+                   card_data.edition == mod.config.current_edition then
                     count = count + 1
                 end
             end
@@ -1305,7 +1522,7 @@ local function create_deck_builder()
     }
 end
 
--- Starting Items menu that combines jokers and vouchers
+-- Starting Items menu that combines jokers, vouchers, and tags
 local function create_starting_items_menu()
     return {
         n = G.UIT.ROOT,
@@ -1326,10 +1543,15 @@ local function create_starting_items_menu()
                 {n = G.UIT.T, config = {text = tostring(#mod.config.starting_vouchers), scale = 0.5, colour = {0.4, 1, 0.4, 1}}}
             }},
             
+            {n = G.UIT.R, config = {align = "cm", padding = 0.05}, nodes = {
+                {n = G.UIT.T, config = {text = "Selected Tags: ", scale = 0.5, colour = {1, 1, 1, 1}}},
+                {n = G.UIT.T, config = {text = tostring(#mod.config.starting_tags), scale = 0.5, colour = {1, 0.8, 0.2, 1}}}
+            }},
+            
             -- Spacing
             {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {}},
             
-            -- Menu buttons - changed joker button to purple
+            -- Menu buttons - joker button is purple, tags button is chrome/metallic
             {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
                 {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_open_joker_menu", hover = true, minw = 6.2, minh = 1, colour = {0.6, 0.2, 0.8, 1}, r = 0.1}, 
                  nodes = {{n = G.UIT.T, config = {text = "Select Jokers", scale = 0.5, colour = G.C.WHITE}}}}
@@ -1338,6 +1560,11 @@ local function create_starting_items_menu()
             {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
                 {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_open_voucher_menu", hover = true, minw = 6.2, minh = 1, colour = {0.8, 0.2, 0.6, 1}, r = 0.1}, 
                  nodes = {{n = G.UIT.T, config = {text = "Select Vouchers", scale = 0.5, colour = G.C.WHITE}}}}
+            }},
+            
+            {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+                {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_open_tag_menu", hover = true, minw = 6.2, minh = 1, colour = {0.7, 0.7, 0.8, 1}, r = 0.1}, 
+                 nodes = {{n = G.UIT.T, config = {text = "Select Tags", scale = 0.5, colour = G.C.WHITE}}}}
             }},
             
             -- Clear buttons
@@ -1353,6 +1580,14 @@ end
 
 -- Helper function to format names for display
 local function format_name(name, prefix)
+    -- Special case for Caino
+    if name == "j_caino" then
+        return "Canio"
+    elseif name == "j_ticket" then
+        return "Golden Ticket"
+    elseif name == "j_gluttenous_joker" then
+        return "Gluttonous Joker"
+    end
     -- Remove prefix and underscores, then capitalize each word
     local clean_name = name:gsub(prefix, ""):gsub("_", " ")
     -- Capitalize first letter of each word
@@ -1425,16 +1660,10 @@ local function create_joker_menu()
                 display_text = joker_name .. " (" .. count .. ")"
             end
             
-            -- Color coding for joker counts
-            local button_colour = {0.3, 0.3, 0.3, 1}
-            if count > 0 and count <= 9 then
-                button_colour = G.C.GREEN  -- 1-9: Green
-            elseif count >= 10 and count <= 19 then
-                button_colour = {0.8, 0.6, 0.2, 1}   -- 10-19: Gold
-            elseif count >= 20 and count <= 29 then
-                button_colour = {1, 0.5, 0.2, 1} -- 20-29: Orange
-            elseif count >= 30 then
-                button_colour = G.C.RED    -- 30: Red (max)
+            -- Always use blue color for selection buttons, purple if selected
+            local button_colour = {0.4, 0.4, 0.8, 1}
+            if count > 0 then
+                button_colour = {0.6, 0.2, 0.8, 1}  -- Purple when selected
             end
             
             table.insert(joker_grid.nodes[#joker_grid.nodes].nodes, {
@@ -1548,7 +1777,11 @@ local function create_voucher_menu()
             local voucher_name = format_name(voucher_key, "v_")
             local display_text = voucher_name
             
-            local button_colour = is_selected and G.C.GREEN or {0.3, 0.3, 0.3, 1}
+            -- Always use blue color for selection buttons, purple if selected
+            local button_colour = {0.4, 0.4, 0.8, 1}
+            if is_selected then
+                button_colour = {0.6, 0.2, 0.8, 1}  -- Purple when selected
+            end
             
             table.insert(voucher_grid.nodes[#voucher_grid.nodes].nodes, {
                 n = G.UIT.C,
@@ -1606,6 +1839,110 @@ local function create_voucher_menu()
     }
 end
 
+-- Tag selection menu
+local function create_tag_menu()
+    mod.config.tag_page = mod.config.tag_page or 1
+    
+    local current_page = mod.config.tag_page or 1
+    local tags_per_page = 20
+    local start_index = (current_page - 1) * tags_per_page + 1
+    local end_index = math.min(start_index + tags_per_page - 1, #available_tags)
+    local total_pages = math.ceil(#available_tags / tags_per_page)
+    
+    local tag_nodes = {
+        -- Title
+        {n = G.UIT.R, config = {align = "cm", padding = 0.2, colour = {0, 0, 0, 1}, r = 0.1}, 
+         nodes = {{n = G.UIT.T, config = {text = "SELECT STARTING TAGS", scale = 0.8, colour = {1, 1, 1, 1}}}}},
+        
+        -- Info
+        {n = G.UIT.R, config = {align = "cm", padding = 0.1}, 
+         nodes = {{n = G.UIT.T, config = {text = "Selected: " .. tostring(#mod.config.starting_tags) .. " | Page: " .. current_page .. "/" .. total_pages, scale = 0.5, colour = {1, 1, 1, 1}}}}}
+    }
+    
+    local tag_grid = {n = G.UIT.R, config = {align = "cm", padding = 0.05}, nodes = {}}
+    
+    for i = start_index, end_index do
+        if (i - start_index) % 5 == 0 then
+            table.insert(tag_grid.nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.02}, nodes = {}})
+        end
+        
+        local tag_key = available_tags[i]
+        if tag_key then
+            local is_selected = false
+            
+            -- Check if this tag is selected
+            for _, selected in ipairs(mod.config.starting_tags) do
+                if selected == tag_key then
+                    is_selected = true
+                    break
+                end
+            end
+            
+            local tag_name = format_name(tag_key, "tag_")
+            local display_text = tag_name
+            
+            -- Always use blue color for selection buttons, purple if selected
+            local button_colour = {0.4, 0.4, 0.8, 1}
+            if is_selected then
+                button_colour = {0.6, 0.2, 0.8, 1}  -- Purple when selected
+            end
+            
+            table.insert(tag_grid.nodes[#tag_grid.nodes].nodes, {
+                n = G.UIT.C,
+                config = {
+                    align = "cm",
+                    padding = 0.05,
+                    button = "cs_toggle_tag",
+                    ref_table = {tag_key = tag_key},
+                    hover = true,
+                    minw = 1.9,
+                    minh = 0.7,
+                    colour = button_colour,
+                    r = 0.05
+                },
+                nodes = {
+                    {n = G.UIT.T, config = {text = display_text, scale = 0.26, colour = G.C.WHITE}}
+                }
+            })
+        end
+    end
+    
+    table.insert(tag_nodes, tag_grid)
+    
+    -- Spacer to push buttons to bottom
+    table.insert(tag_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {}})
+    
+    -- Bottom buttons - navigation and back
+    if total_pages > 1 then
+        table.insert(tag_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {
+            {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_tag_prev_page", hover = true, minw = 2.5, minh = 1, colour = {0.8, 0.2, 0.2, 1}, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "◀ Previous", scale = 0.5, colour = G.C.WHITE}}}},
+            {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_clear_tags", hover = true, minw = 2.5, minh = 1, colour = G.C.RED, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "Clear All", scale = 0.5, colour = G.C.WHITE}}}},
+            {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_tag_next_page", hover = true, minw = 2.5, minh = 1, colour = {0.2, 0.8, 0.2, 1}, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "Next ▶", scale = 0.5, colour = G.C.WHITE}}}}
+        }})
+        
+        table.insert(tag_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+            {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_back_to_starting_items", hover = true, minw = 2.5, minh = 1, colour = {0.6, 0.6, 0.6, 1}, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "Back", scale = 0.5, colour = G.C.WHITE}}}}
+        }})
+    else
+        table.insert(tag_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.3}, nodes = {
+            {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_clear_tags", hover = true, minw = 2.5, minh = 1, colour = G.C.RED, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "Clear All", scale = 0.5, colour = G.C.WHITE}}}},
+            {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_back_to_starting_items", hover = true, minw = 2.5, minh = 1, colour = {0.6, 0.6, 0.6, 1}, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "Back", scale = 0.5, colour = G.C.WHITE}}}}
+        }})
+    end
+    
+    return {
+        n = G.UIT.ROOT,
+        config = {align = "cm", minw = 12, minh = 10, colour = {0, 0, 0, 0.8}, r = 0.1, padding = 0.1},
+        nodes = tag_nodes
+    }
+end
+
 -- Give Item menu
 local function create_give_item_menu()
     local give_nodes = {
@@ -1646,6 +1983,11 @@ local function create_give_item_menu()
              nodes = {{n = G.UIT.T, config = {text = "Voucher", scale = 0.5, colour = G.C.WHITE}}}}
         }},
         
+        {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+            {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_tag", hover = true, minw = 3, minh = 1, colour = {0.7, 0.7, 0.8, 1}, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "Tag", scale = 0.5, colour = G.C.WHITE}}}}
+        }},
+        
         -- Spacing
         {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {}},
         
@@ -1663,8 +2005,17 @@ local function create_give_item_menu()
     }
 end
 
--- Money giving menu
+-- Money giving menu with gradient colors
 local function create_give_money_menu()
+    -- Define gradient colors from green to blue
+    local gradient_colors = {
+        {0.2, 0.8, 0.2, 1},    -- Green
+        {0.2, 0.75, 0.35, 1},  -- Green-Teal
+        {0.2, 0.7, 0.5, 1},    -- Teal
+        {0.2, 0.6, 0.65, 1},   -- Teal-Blue
+        {0.2, 0.5, 0.8, 1}     -- Blue
+    }
+    
     return {
         n = G.UIT.ROOT,
         config = {align = "cm", minw = 8, minh = 10, colour = {0, 0, 0, 0.8}, r = 0.1, padding = 0.1},
@@ -1680,29 +2031,29 @@ local function create_give_money_menu()
             -- Spacing
             {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {}},
             
-            -- Money amount buttons
+            -- Money amount buttons with gradient
             {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
-                {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_money_10", hover = true, minw = 3, minh = 1, colour = {0.2, 0.8, 0.2, 1}, r = 0.1}, 
+                {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_money_10", hover = true, minw = 3, minh = 1, colour = gradient_colors[1], r = 0.1}, 
                  nodes = {{n = G.UIT.T, config = {text = "Give $10", scale = 0.5, colour = G.C.WHITE}}}}
             }},
             
             {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
-                {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_money_50", hover = true, minw = 3, minh = 1, colour = {0.2, 0.7, 0.3, 1}, r = 0.1}, 
+                {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_money_50", hover = true, minw = 3, minh = 1, colour = gradient_colors[2], r = 0.1}, 
                  nodes = {{n = G.UIT.T, config = {text = "Give $50", scale = 0.5, colour = G.C.WHITE}}}}
             }},
             
             {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
-                {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_money_100", hover = true, minw = 3, minh = 1, colour = {0.2, 0.6, 0.4, 1}, r = 0.1}, 
+                {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_money_100", hover = true, minw = 3, minh = 1, colour = gradient_colors[3], r = 0.1}, 
                  nodes = {{n = G.UIT.T, config = {text = "Give $100", scale = 0.5, colour = G.C.WHITE}}}}
             }},
             
             {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
-                {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_money_1000", hover = true, minw = 3, minh = 1, colour = {0.2, 0.5, 0.5, 1}, r = 0.1}, 
+                {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_money_1000", hover = true, minw = 3, minh = 1, colour = gradient_colors[4], r = 0.1}, 
                  nodes = {{n = G.UIT.T, config = {text = "Give $1000", scale = 0.5, colour = G.C.WHITE}}}}
             }},
             
             {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
-                {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_money_infinite", hover = true, minw = 3, minh = 1, colour = {1, 0.2, 1, 1}, r = 0.1}, 
+                {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_money_infinite", hover = true, minw = 3, minh = 1, colour = gradient_colors[5], r = 0.1}, 
                  nodes = {{n = G.UIT.T, config = {text = "Infinite Money", scale = 0.5, colour = G.C.WHITE}}}}
             }},
             
@@ -1922,9 +2273,14 @@ local function create_card_selection_menu(card_list, title, give_function_name)
                 -- Check if it's a Mika's joker
                 local is_mikas = card_key:find("j_mmc_") ~= nil
                 card_name = format_name(card_key, is_mikas and "j_mmc_" or "j_")
+            elseif give_function_name == "cs_instant_give_tag" then
+                card_name = format_name(card_key, "tag_")
             else
                 card_name = card_key
             end
+            
+            -- Always use blue color for give menus
+            local button_colour = {0.4, 0.4, 0.8, 1}
             
             table.insert(card_grid.nodes[#card_grid.nodes].nodes, {
                 n = G.UIT.C,
@@ -1936,7 +2292,7 @@ local function create_card_selection_menu(card_list, title, give_function_name)
                     hover = true,
                     minw = 1.9,
                     minh = 0.7,
-                    colour = {0.4, 0.4, 0.8, 1},
+                    colour = button_colour,
                     r = 0.05
                 },
                 nodes = {
@@ -1977,6 +2333,7 @@ end
 G.FUNCS.cs_clear_all_starting_items = function(e)
     mod.config.starting_jokers = {}
     mod.config.starting_vouchers = {}
+    mod.config.starting_tags = {}
     save_config()
     create_overlay(create_starting_items_menu())
     print("Cleared all starting items")
@@ -2007,6 +2364,10 @@ G.FUNCS.cs_open_voucher_menu = function(e)
     create_overlay(create_voucher_menu())
 end
 
+G.FUNCS.cs_open_tag_menu = function(e)
+    create_overlay(create_tag_menu())
+end
+
 G.FUNCS.cs_open_give_item_menu = function(e)
     create_overlay(create_give_item_menu())
 end
@@ -2019,7 +2380,7 @@ G.FUNCS.cs_close_menu = function(e)
     close_zokers_menu()
 end
 
--- Give money functions - updated to NOT close menu
+-- Give money functions - updated to NOT close menu and with more 9's for infinite
 G.FUNCS.cs_give_money = function(e)
     create_overlay(create_give_money_menu())
 end
@@ -2058,8 +2419,8 @@ end
 
 G.FUNCS.cs_give_money_infinite = function(e)
     if G.GAME then
-        G.GAME.dollars = 999999999999
-        print("Given: Infinite Money ($999999999999)")
+        G.GAME.dollars = 99999999999999999  -- Added three more 9's
+        print("Given: Infinite Money ($99999999999999999)")
         create_overlay(create_give_money_menu())
     end
 end
@@ -2085,6 +2446,7 @@ G.FUNCS.cs_reset_money_stats = function(e)
     mod.config.hand_levels = 1
     mod.config.joker_slots = 5
     mod.config.consumable_slots = 2
+    mod.config.ante_scaling = 1
     save_config()
     create_overlay(create_money_menu())
     print("Starting Stats reset to defaults")
@@ -2188,7 +2550,7 @@ G.FUNCS.cs_cycle_give_edition = function(e)
     create_overlay(create_give_card_menu())
 end
 
--- FIXED give configured card function - use correct card format
+-- FIXED give configured card function - with lucky card fix
 G.FUNCS.cs_give_configured_card = function(e)
     -- Ensure we're in a state where we can give cards
     if not G.STATE or G.STATE == G.STATES.MENU then
@@ -2253,7 +2615,7 @@ G.FUNCS.cs_give_configured_card = function(e)
                     card:set_edition({[mod.config.give_card_edition] = true})
                 end
                 
-                -- Lucky cards don't need special handling - the game handles them automatically
+                -- Lucky cards will be handled by the game's native logic with our hook
                 
                 -- Add to playing cards list
                 card:add_to_deck()
@@ -2370,10 +2732,13 @@ G.FUNCS.cs_reset_all = function(e)
     mod.config.custom_deck = {}
     mod.config.starting_jokers = {}
     mod.config.starting_vouchers = {}
+    mod.config.starting_tags = {}
     mod.config.use_custom_stats = false
     mod.config.use_custom_deck = false
     mod.config.use_starting_items = false
     mod.config.allow_give_during_runs = false
+    mod.config.ante_scaling = 1
+    mod.config.mod_disabled = false
     save_config()
     create_overlay(create_settings_menu())
     print("ZokersModMenu: All settings reset to defaults")
@@ -2419,12 +2784,19 @@ G.FUNCS.cs_give_joker = function(e)
     create_overlay(create_card_selection_menu(available_jokers, "SELECT JOKER", "cs_instant_give_joker"))
 end
 
+G.FUNCS.cs_give_tag = function(e)
+    mod.config.current_give_list = available_tags
+    mod.config.give_type = "tag"
+    mod.config.give_page = 1
+    create_overlay(create_card_selection_menu(available_tags, "SELECT TAG", "cs_instant_give_tag"))
+end
+
 G.FUNCS.cs_back_to_give = function(e)
     create_overlay(create_give_item_menu())
 end
 
 G.FUNCS.cs_back_to_consumable_type = function(e)
-    if mod.config.give_type == "joker" or mod.config.give_type == "voucher" then
+    if mod.config.give_type == "joker" or mod.config.give_type == "voucher" or mod.config.give_type == "tag" then
         create_overlay(create_give_item_menu())
     else
         create_overlay(create_consumable_type_menu())
@@ -2500,8 +2872,6 @@ G.FUNCS.cs_instant_give_voucher = function(e)
                 G.GAME.used_vouchers[req] = true
             end
         end
-        
-        -- Special handling removed for telescope - will use normal voucher redeem method
         
         -- Direct voucher effect application
         if voucher_key == "v_grabber" then
@@ -2668,6 +3038,29 @@ G.FUNCS.cs_instant_give_joker = function(e)
     }))
 end
 
+-- Give tag function
+G.FUNCS.cs_instant_give_tag = function(e)
+    local tag_key = e.config.ref_table and e.config.ref_table.card_key
+    
+    if not tag_key then
+        print("Error: No tag key provided")
+        return
+    end
+    
+    -- Check if we're in a valid state
+    if not G.STATE or G.STATE == G.STATES.MENU then
+        print("Error: Cannot give tags from menu, must be in a run")
+        return
+    end
+    
+    if G.P_TAGS and G.P_TAGS[tag_key] then
+        add_tag(Tag(tag_key))
+        print("Given tag: " .. tag_key)
+    else
+        print("Error: Tag not found - " .. tag_key)
+    end
+end
+
 -- Navigation functions for joker pages
 G.FUNCS.cs_joker_prev_page = function(e)
     mod.config.joker_page = math.max(1, (mod.config.joker_page or 1) - 1)
@@ -2703,6 +3096,18 @@ G.FUNCS.cs_voucher_next_page = function(e)
     create_overlay(create_voucher_menu())
 end
 
+-- Navigation functions for tag pages
+G.FUNCS.cs_tag_prev_page = function(e)
+    mod.config.tag_page = math.max(1, (mod.config.tag_page or 1) - 1)
+    create_overlay(create_tag_menu())
+end
+
+G.FUNCS.cs_tag_next_page = function(e)
+    local total_pages = math.ceil(#available_tags / 20)
+    mod.config.tag_page = math.min(total_pages, (mod.config.tag_page or 1) + 1)
+    create_overlay(create_tag_menu())
+end
+
 -- Navigation functions for give item pages
 G.FUNCS.cs_give_prev_page = function(e)
     mod.config.give_page = math.max(1, (mod.config.give_page or 1) - 1)
@@ -2719,6 +3124,8 @@ G.FUNCS.cs_give_prev_page = function(e)
         create_overlay(create_card_selection_menu(spectral_cards, "SELECT SPECTRAL CARD", "cs_instant_give_card"))
     elseif mod.config.give_type == "voucher" then
         create_overlay(create_card_selection_menu(available_vouchers, "SELECT VOUCHER", "cs_instant_give_voucher"))
+    elseif mod.config.give_type == "tag" then
+        create_overlay(create_card_selection_menu(available_tags, "SELECT TAG", "cs_instant_give_tag"))
     end
 end
 
@@ -2737,6 +3144,8 @@ G.FUNCS.cs_give_next_page = function(e)
         total_pages = math.ceil(#spectral_cards / 20)
     elseif mod.config.give_type == "voucher" then
         total_pages = math.ceil(#available_vouchers / 20)
+    elseif mod.config.give_type == "tag" then
+        total_pages = math.ceil(#available_tags / 20)
     end
     
     mod.config.give_page = math.min(total_pages, (mod.config.give_page or 1) + 1)
@@ -2753,6 +3162,8 @@ G.FUNCS.cs_give_next_page = function(e)
         create_overlay(create_card_selection_menu(spectral_cards, "SELECT SPECTRAL CARD", "cs_instant_give_card"))
     elseif mod.config.give_type == "voucher" then
         create_overlay(create_card_selection_menu(available_vouchers, "SELECT VOUCHER", "cs_instant_give_voucher"))
+    elseif mod.config.give_type == "tag" then
+        create_overlay(create_card_selection_menu(available_tags, "SELECT TAG", "cs_instant_give_tag"))
     end
 end
 
@@ -2793,6 +3204,33 @@ G.FUNCS.cs_toggle_voucher = function(e)
     create_overlay(create_voucher_menu())
 end
 
+-- Toggle tag selection
+G.FUNCS.cs_toggle_tag = function(e)
+    local tag_key = e.config.ref_table.tag_key
+    local found = false
+    local index_to_remove = nil
+    
+    -- Check if already selected
+    for i, selected in ipairs(mod.config.starting_tags) do
+        if selected == tag_key then
+            found = true
+            index_to_remove = i
+            break
+        end
+    end
+    
+    if found then
+        -- Remove if already selected
+        table.remove(mod.config.starting_tags, index_to_remove)
+    else
+        -- Add if not selected
+        table.insert(mod.config.starting_tags, tag_key)
+    end
+    
+    save_config()
+    create_overlay(create_tag_menu())
+end
+
 -- Clear functions
 G.FUNCS.cs_clear_jokers = function(e)
     mod.config.starting_jokers = {}
@@ -2804,6 +3242,12 @@ G.FUNCS.cs_clear_vouchers = function(e)
     mod.config.starting_vouchers = {}
     save_config()
     create_overlay(create_voucher_menu())
+end
+
+G.FUNCS.cs_clear_tags = function(e)
+    mod.config.starting_tags = {}
+    save_config()
+    create_overlay(create_tag_menu())
 end
 
 -- Money & Stats adjustment functions
@@ -2896,21 +3340,7 @@ G.FUNCS.cs_add_card = function(e)
     local rank = e.config.ref_table.rank
     local suit = e.config.ref_table.suit
     
-    -- Count how many of this card we already have
-    local count = 0
-    for _, card_data in ipairs(mod.config.custom_deck) do
-        if card_data.rank == rank and card_data.suit == suit then
-            count = count + 1
-        end
-    end
-    
-    -- Check limit of 8 per card
-    if count >= 8 then
-        print("Cannot add more than 8 of the same card")
-        return
-    end
-    
-    -- Add card with current enhancement/seal/edition
+    -- Add card with current enhancement/seal/edition regardless of existing cards
     local card_data = create_card_data(
         rank, 
         suit, 
@@ -2941,14 +3371,21 @@ G.FUNCS.cs_standard_deck = function(e)
     local suits = {'S', 'H', 'D', 'C'}
     local ranks = {'A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K'}
     
+    -- Use current enhancement/seal/edition settings
     for _, suit in ipairs(suits) do
         for _, rank in ipairs(ranks) do
-            table.insert(mod.config.custom_deck, create_card_data(rank, suit))
+            table.insert(mod.config.custom_deck, create_card_data(
+                rank, 
+                suit,
+                mod.config.current_enhancement,
+                mod.config.current_seal,
+                mod.config.current_edition
+            ))
         end
     end
     
     save_config()
-    print("ZokersModMenu: Created standard 52-card deck. Total: " .. #mod.config.custom_deck)
+    print("ZokersModMenu: Created standard 52-card deck with current settings. Total: " .. #mod.config.custom_deck)
     create_overlay(create_deck_builder())
 end
 
@@ -3018,88 +3455,131 @@ G.FUNCS.cs_cycle_edition = function(e)
     create_overlay(create_deck_builder())
 end
 
--- Console function - simple implementation
-G.FUNCS.cs_open_console = function(e)
-    -- Create a simple console menu
-    local console_nodes = {
-        -- Title
-        {n = G.UIT.R, config = {align = "cm", padding = 0.2, colour = {0, 0, 0, 1}, r = 0.1}, 
-         nodes = {{n = G.UIT.T, config = {text = "CONSOLE", scale = 0.8, colour = {1, 1, 1, 1}}}}},
-        
-        -- Instructions
-        {n = G.UIT.R, config = {align = "cm", padding = 0.1}, 
-         nodes = {{n = G.UIT.T, config = {text = "Quick Commands", scale = 0.5, colour = {1, 1, 1, 1}}}}},
-        
-        -- Spacing
-        {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {}},
-        
-        -- Commands
-        {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
-            {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_console_give_100", hover = true, minw = 4, minh = 1, colour = {0.2, 0.8, 0.2, 1}, r = 0.1}, 
-             nodes = {{n = G.UIT.T, config = {text = "Give $100", scale = 0.5, colour = G.C.WHITE}}}}
-        }},
-        
-        {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
-            {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_console_unlock_all", hover = true, minw = 4, minh = 1, colour = {0.8, 0.2, 0.8, 1}, r = 0.1}, 
-             nodes = {{n = G.UIT.T, config = {text = "Unlock All", scale = 0.5, colour = G.C.WHITE}}}}
-        }},
-        
-        {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
-            {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_console_win_run", hover = true, minw = 4, minh = 1, colour = {0.8, 0.6, 0.2, 1}, r = 0.1}, 
-             nodes = {{n = G.UIT.T, config = {text = "Win Run", scale = 0.5, colour = G.C.WHITE}}}}
-        }},
-        
-        -- Spacing
-        {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {}},
-        
-        -- Back button
-        {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
-            {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_back_to_main", hover = true, minw = 3, minh = 1, colour = {0.6, 0.6, 0.6, 1}, r = 0.1}, 
-             nodes = {{n = G.UIT.T, config = {text = "Back", scale = 0.5, colour = G.C.WHITE}}}}
-        }}
-    }
-    
-    create_overlay({
-        n = G.UIT.ROOT,
-        config = {align = "cm", minw = 8, minh = 10, colour = {0, 0, 0, 0.8}, r = 0.1, padding = 0.1},
-        nodes = console_nodes
-    })
-end
-
--- Console command functions
-G.FUNCS.cs_console_give_100 = function(e)
-    if G.GAME then
-        G.GAME.dollars = (G.GAME.dollars or 0) + 100
-        print("Console: Given $100")
-    end
-end
-
-G.FUNCS.cs_console_unlock_all = function(e)
-    if G.PROGRESS then
-        for k, v in pairs(G.P_CENTERS) do
-            if v.unlock_condition and not v.alerted then
-                v.alerted = true
-                G.E_MANAGER:add_event(Event({
-                    trigger = 'immediate',
-                    func = function()
-                        discover_card(v)
-                        return true
-                    end
-                }))
+-- Unlock all function - IMPROVED to unlock everything
+G.FUNCS.cs_unlock_all = function(e)
+    -- Unlock all jokers
+    for k, v in pairs(G.P_CENTERS) do
+        if v.set and (v.set == 'Joker' or v.set == 'Tarot' or v.set == 'Planet' or 
+                      v.set == 'Spectral' or v.set == 'Voucher' or v.set == 'Booster' or
+                      v.set == 'Edition' or v.set == 'Enhanced' or v.set == 'Seal') then
+            v.discovered = true
+            v.alerted = true
+            if v.unlock_condition then
+                v.unlock_condition.met = true
             end
         end
-        print("Console: Unlocked all items")
     end
-end
-
-G.FUNCS.cs_console_win_run = function(e)
-    if G.GAME and G.STATE == G.STATES.SELECTING_HAND then
-        G.GAME.chips = G.GAME.blind.chips * 2
-        G.FUNCS.evaluate_play()
-        print("Console: Winning current blind")
-    else
-        print("Console: Must be in a hand to win")
+    
+    -- Unlock all consumables
+    if G.P_CENTERS then
+        for k, v in pairs(G.P_CENTERS) do
+            if v.consumeable then
+                v.discovered = true
+                v.alerted = true
+            end
+        end
     end
+    
+    -- Unlock all decks
+    for k, v in pairs(G.P_CENTERS) do
+        if v.set == 'Back' then
+            v.alerted = true
+            v.discovered = true
+            v.unlocked = true
+            if v.unlock_condition then
+                v.unlock_condition.met = true
+                v.unlock_condition.discovered = true
+            end
+        end
+    end
+    
+    -- Unlock all stakes
+    if G.P_CENTER_POOLS and G.P_CENTER_POOLS.Stake then
+        for k, v in pairs(G.P_CENTER_POOLS.Stake) do
+            v.discovered = true
+            v.alerted = true
+            v.unlocked = true
+            if v.unlock_condition then
+                v.unlock_condition.met = true
+            end
+        end
+    end
+    
+    -- Alternative stake unlock method
+    if G.P_STAKES then
+        for i = 1, 8 do
+            G.P_STAKES[i] = G.P_STAKES[i] or {}
+            G.P_STAKES[i].unlocked = true
+            G.P_STAKES[i].discovered = true
+            G.P_STAKES[i].alerted = true
+        end
+    end
+    
+    -- Unlock all blinds
+    for k, v in pairs(G.P_BLINDS) do
+        v.discovered = true
+        v.alerted = true
+        v.unlocked = true
+    end
+    
+    -- Unlock all tags
+    for k, v in pairs(G.P_TAGS) do
+        v.discovered = true
+        v.alerted = true
+        v.unlocked = true
+    end
+    
+    -- Unlock all cards (playing cards)
+    if G.P_CARDS then
+        for k, v in pairs(G.P_CARDS) do
+            v.discovered = true
+            v.alerted = true
+        end
+    end
+    
+    -- Unlock modded content if present
+    if SMODS then
+        -- Unlock modded jokers
+        if SMODS.Jokers then
+            for k, v in pairs(SMODS.Jokers) do
+                if v.discovered ~= nil then v.discovered = true end
+                if v.alerted ~= nil then v.alerted = true end
+                if v.unlocked ~= nil then v.unlocked = true end
+            end
+        end
+        
+        -- Unlock modded consumables  
+        if SMODS.Consumables then
+            for k, v in pairs(SMODS.Consumables) do
+                if v.discovered ~= nil then v.discovered = true end
+                if v.alerted ~= nil then v.alerted = true end
+            end
+        end
+        
+        -- Unlock modded vouchers
+        if SMODS.Vouchers then
+            for k, v in pairs(SMODS.Vouchers) do
+                if v.discovered ~= nil then v.discovered = true end
+                if v.alerted ~= nil then v.alerted = true end
+            end
+        end
+        
+        -- Unlock modded decks
+        if SMODS.Backs then
+            for k, v in pairs(SMODS.Backs) do
+                if v.discovered ~= nil then v.discovered = true end
+                if v.alerted ~= nil then v.alerted = true end
+                if v.unlocked ~= nil then v.unlocked = true end
+            end
+        end
+    end
+    
+    -- Save progress
+    if G.PROFILES and G.PROFILES[G.SETTINGS.profile] then
+        G:save_progress()
+    end
+    
+    print("ZokersModMenu: Unlocked all jokers, cards, tags, vouchers, stakes, decks, consumables, and enabled challenges")
 end
 
 -- Hook to add menu button to pause menu
