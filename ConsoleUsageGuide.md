@@ -1,4 +1,4 @@
-# Console Usage Guide - ZokersModMenu v2.0.0
+# Console Usage Guide - ZokersModMenu v2.1.0
 
 This guide will teach you how to use the developer console to access ZokersModMenu's powerful command system.
 
@@ -25,7 +25,7 @@ This guide will teach you how to use the developer console to access ZokersModMe
 6. **Press Enter**
 7. Notice how your starting money is now $100 and hand size is 12!
 
-## 🆕 New in v2.0.0: Multiple Menu Access Methods
+## 🆕 New in v2.1.0: Multiple Menu Access Methods
 
 You can now open the mod menu in multiple ways:
 - **Press C** - Traditional quick access key
@@ -50,7 +50,7 @@ All methods work identically - use whichever is most convenient!
 3. **Watch for feedback** - the console will show results
 4. **Type new commands** on the next line
 
-### Common Issues & v2.0.0 Fixes
+### Common Issues & v2.1.0 Fixes
 - **Console won't open**: Try different key combinations, ensure game is in focus
 - **Commands don't work**: Check spelling - they're case sensitive!
 - **Text too small**: Some systems have small console text - this is normal

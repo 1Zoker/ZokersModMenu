@@ -1,7 +1,7 @@
 {
   "id": "ZokersModMenu",
   "name": "ZokersModMenu",
-  "version_number": "2.0.0",
+  "version_number": "2.1.0",
   "website_url": "https://github.com/1Zoker/ZokersModMenu",
   "description": "Press C or steammodded config to open Mod Menu",
   "dependencies": [
