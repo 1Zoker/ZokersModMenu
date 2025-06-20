@@ -1,4 +1,4 @@
-# Console Usage Guide - ZokersModMenu v2.1.0
+# Console Usage Guide - ZokersModMenu v2.1.1
 
 This guide will teach you how to use the developer console to access ZokersModMenu's powerful command system.
 

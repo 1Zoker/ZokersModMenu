@@ -2,6 +2,17 @@
 
 All notable changes to ZokersModMenu will be documented in this file.
 
+## [2.1.1] - 2025-06-19
+-Multiple Mods appear in Items menu now
+-Better formatting
+-Vouchers are being given now and actually applying
+-Configurable keybind
+-Pull Jokers from Collection Automatically
+-Automatically remove prefixes of all added cards, jokers, items
+-Added more Editions to cards
+-Added Modded Consumables
+
+
 ## [2.1.0] - 2025-06-16
 
 -Added Modded Support!

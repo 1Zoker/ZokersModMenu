@@ -1,7 +1,7 @@
 {
   "id": "ZokersModMenu",
   "name": "ZokersModMenu",
-  "version_number": "2.1.0",
+  "version_number": "2.1.1",
   "website_url": "https://github.com/1Zoker/ZokersModMenu",
   "description": "Press C or steammodded config to open Mod Menu",
   "dependencies": [
@@ -50,5 +50,5 @@
     "Custom decks disabled by default - enable in main menu",
     "Enable 'Give Items' before starting a run to use the give system"
   ],
-  "changelog": "v1.5.0: Added Steammodded config as alternative access path, enhanced crash prevention system, improved error handling for edge cases, fixed metadata structure for better mod loader compatibility"
+  "changelog": "v2.1.1: Bug Fixes"
 }

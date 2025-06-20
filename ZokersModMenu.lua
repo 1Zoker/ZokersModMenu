@@ -6,7 +6,7 @@
 --- BADGE_COLOUR: 708b91
 --- PREFIX: cs
 --- PRIORITY: 0
---- VERSION: 2.1.0
+--- VERSION: 2.1.1
 --- RELEASE_DATE: 2025-06-16
 
 ----------------------------------------------
@@ -30,11 +30,8 @@ end
 local function save_config()
     if SMODS.save_mod_config and mod then
         SMODS.save_mod_config(mod)
-        print("ZokersModMenu: Config saved via SMODS.save_mod_config. Deck size: " .. #mod.config.custom_deck)
     elseif SMODS.save_config then
         SMODS.save_config("ZokersModMenu", mod.config)
-        print("ZokersModMenu: Config saved via SMODS.save_config. Deck size: " .. #mod.config.custom_deck)
-    else
         print("ZokersModMenu: Warning - No save method available!")
     end
 end
@@ -56,6 +53,15 @@ if SMODS and SMODS.current_mod then
                     {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_open_main_menu_from_config", hover = true, minw = 3, minh = 1, colour = G.C.BLUE, r = 0.1}, 
                      nodes = {{n = G.UIT.T, config = {text = "Open Mod Menu", scale = 0.5, colour = G.C.WHITE}}}}
                 }},
+				-- Add menu key remapping
+                {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+                    {n = G.UIT.C, config = {align = "cl", padding = 0.05}, nodes = {
+                        {n = G.UIT.T, config = {text = "Menu Key: ", scale = 0.5, colour = G.C.WHITE}},
+                        {n = G.UIT.C, config = {align = "cm", padding = 0.05, button = "cs_change_menu_key", hover = true, minw = 1.2, minh = 0.7, 
+                            colour = {0.4, 0.6, 0.8, 1}, r = 0.05, outline_colour = G.C.WHITE, outline = 1}, 
+                         nodes = {{n = G.UIT.T, config = {text = string.upper(mod.config.menu_key), scale = 0.5, colour = G.C.WHITE}}}}
+                    }}
+			    }},
                 -- Add disable checkbox in config
                 {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {}},
                 {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
@@ -130,13 +136,24 @@ mod.config.allow_give_during_runs = mod.config.allow_give_during_runs or false
 mod.config.use_starting_items = mod.config.use_starting_items or false
 mod.config.ante_scaling = mod.config.ante_scaling or 1
 mod.config.mod_disabled = mod.config.mod_disabled or false  -- NEW: disable option
+mod.config.menu_key = mod.config.menu_key or 'c'
+mod.config.came_from_modded = false
+mod.config.current_modded_list = {}
+-- Page tracking for navigation
+mod.config.give_mod_page_joker = mod.config.give_mod_page_joker or 1
+mod.config.give_mod_page_voucher = mod.config.give_mod_page_voucher or 1
+mod.config.give_mod_page_tag = mod.config.give_mod_page_tag or 1
+mod.config.give_mod_page_tarot = mod.config.give_mod_page_tarot or 1
+mod.config.give_mod_page_planet = mod.config.give_mod_page_planet or 1
+mod.config.give_mod_page_spectral = mod.config.give_mod_page_spectral or 1
 
--- Color definitions for buttons
+-- At the top with other color definitions, update edition_colors:
 local edition_colors = {
     base = {0.3, 0.3, 0.3, 1},        -- Dark grey (default)
     foil = {0.2, 0.4, 0.8, 1},        -- Blue
     holo = {0.8, 0.2, 0.2, 1},        -- Red
-    polychrome = {0.8, 0.2, 0.5, 1}   -- Pink
+    polychrome = {0.8, 0.2, 0.5, 1},  -- Pink
+    negative = {0.1, 0.1, 0.1, 1}     -- Black
 }
 
 -- Enhancement button colors
@@ -306,13 +323,8 @@ local all_modded_vouchers = {}
 local modded_tags_by_mod = {}
 local all_modded_tags = {}
 
--- Dynamic modded consumable detection system
-local modded_tarots_by_mod = {}
-local all_modded_tarots = {}
-local modded_planets_by_mod = {}
-local all_modded_planets = {}
-local modded_spectrals_by_mod = {}
-local all_modded_spectrals = {}
+local modded_other_consumables_by_mod = {}
+local all_modded_other_consumables = {}
 
 -- Function to detect all modded content
 local function detect_all_modded_content()
@@ -329,6 +341,8 @@ local function detect_all_modded_content()
     all_modded_planets = {}
     modded_spectrals_by_mod = {}
     all_modded_spectrals = {}
+	
+	
     
     -- Create lookup tables for vanilla content
     local vanilla_joker_lookup = {}
@@ -504,6 +518,36 @@ local function detect_all_modded_content()
         end
     end
     
+	-- Check for other modded consumables (not tarot/planet/spectral)
+    local other_consumable_types = {}
+    if G.P_CENTERS then
+        for key, center in pairs(G.P_CENTERS) do
+            if center.set and center.set ~= 'Tarot' and center.set ~= 'Planet' and center.set ~= 'Spectral' and 
+               center.set ~= 'Joker' and center.set ~= 'Voucher' and center.set ~= 'Back' and
+               center.set ~= 'Enhanced' and center.set ~= 'Edition' and center.set ~= 'Seal' and
+               center.consumeable then
+                -- It's a modded consumable type
+                local mod_name = determine_mod_name(key, center)
+                local consumable_type = center.set
+                
+                -- Track the consumable type
+                other_consumable_types[consumable_type] = true
+                
+                -- Initialize structures if needed
+                if not modded_other_consumables_by_mod[mod_name] then
+                    modded_other_consumables_by_mod[mod_name] = {}
+                end
+                if not modded_other_consumables_by_mod[mod_name][consumable_type] then
+                    modded_other_consumables_by_mod[mod_name][consumable_type] = {}
+                end
+                
+                -- Add to collections
+                table.insert(all_modded_other_consumables, key)
+                table.insert(modded_other_consumables_by_mod[mod_name][consumable_type], key)
+            end
+        end
+    end
+	
     -- Check for modded tags
     if G.P_TAGS then
         for key, tag in pairs(G.P_TAGS) do
@@ -532,18 +576,159 @@ local function detect_all_modded_content()
     table.sort(all_modded_tarots)
     table.sort(all_modded_planets)
     table.sort(all_modded_spectrals)
+	for mod_name, types in pairs(modded_other_consumables_by_mod) do 
+        for type_name, items in pairs(types) do
+            table.sort(items)
+        end
+    end
+    table.sort(all_modded_other_consumables)
     
-    print("ZokersModMenu: Detected modded content - Jokers: " .. #all_modded_jokers .. 
-          ", Vouchers: " .. #all_modded_vouchers .. ", Tags: " .. #all_modded_tags ..
-          ", Tarots: " .. #all_modded_tarots .. ", Planets: " .. #all_modded_planets ..
-          ", Spectrals: " .. #all_modded_spectrals)
+end
+
+-- Dynamic prefix detection system
+local detected_prefixes = {}
+
+-- Function to detect prefixes for all mods
+local function detect_mod_prefixes()
+    detected_prefixes = {}
+    
+    -- Helper function to find COMMON STARTING PATTERNS
+    local function find_common_prefixes(items)
+        if #items < 2 then return {} end
+        
+        local prefix_counts = {}
+        local word_counts = {}
+        
+        -- First pass: count individual words that appear at the start
+        for _, item in ipairs(items) do
+            -- Remove game prefixes first to analyze the mod part
+            local cleaned = item:gsub("^[jvctagpb]_", "")
+            
+            -- Look for words at the beginning (before underscore, dash, or camelCase)
+            -- Match lowercase followed by uppercase (camelCase)
+            for word in cleaned:gmatch("^(%l+)[_%-A-Z]") do
+                word_counts[word] = (word_counts[word] or 0) + 1
+            end
+            -- Also match word followed by underscore or dash
+            for word in cleaned:gmatch("^(%w+)[_%-]") do
+                word_counts[word] = (word_counts[word] or 0) + 1
+            end
+        end
+        
+        -- Second pass: count full prefixes (word + separator)
+        for _, item in ipairs(items) do
+            -- Look for complete prefixes with separators
+            for len = 3, math.min(20, #item - 1) do
+                local potential_prefix = item:sub(1, len)
+                -- Only count if it ends with _ or -
+                if potential_prefix:match("[_%-]$") then
+                    prefix_counts[potential_prefix] = (prefix_counts[potential_prefix] or 0) + 1
+                end
+            end
+        end
+        
+        -- Find common words (appear in at least 30% of items)
+        local common_words = {}
+        local threshold = math.max(2, math.floor(#items * 0.3))
+        
+        for word, count in pairs(word_counts) do
+            if count >= threshold then
+                common_words[word] = true
+            end
+        end
+        
+        -- Build final prefix list
+        local valid_prefixes = {}
+        local seen = {}
+        
+        -- Add full prefixes that are common
+        for prefix, count in pairs(prefix_counts) do
+            if count >= threshold and not seen[prefix] then
+                table.insert(valid_prefixes, prefix)
+                seen[prefix] = true
+            end
+        end
+        
+        -- Add common words as prefixes (with both _ and - variants)
+        for word, _ in pairs(common_words) do
+            if not seen[word .. "_"] then
+                table.insert(valid_prefixes, word .. "_")
+                seen[word .. "_"] = true
+            end
+            if not seen[word .. "-"] then
+                table.insert(valid_prefixes, word .. "-")
+                seen[word .. "-"] = true
+            end
+            -- Also add just the word for camelCase
+            if not seen[word] then
+                table.insert(valid_prefixes, word)
+                seen[word] = true
+            end
+        end
+        
+        -- Sort by length (longest first)
+        table.sort(valid_prefixes, function(a, b)
+            return #a > #b
+        end)
+        
+        return valid_prefixes
+    end
+    
+    -- Process each mod's items
+    for mod_name, jokers in pairs(modded_jokers_by_mod) do
+        local prefixes = find_common_prefixes(jokers)
+        if #prefixes > 0 then
+            detected_prefixes[mod_name] = detected_prefixes[mod_name] or {}
+            detected_prefixes[mod_name].joker = prefixes
+        end
+    end
+    
+    for mod_name, vouchers in pairs(modded_vouchers_by_mod) do
+        local prefixes = find_common_prefixes(vouchers)
+        if #prefixes > 0 then
+            detected_prefixes[mod_name] = detected_prefixes[mod_name] or {}
+            detected_prefixes[mod_name].voucher = prefixes
+        end
+    end
+    
+    for mod_name, tags in pairs(modded_tags_by_mod) do
+        local prefixes = find_common_prefixes(tags)
+        if #prefixes > 0 then
+            detected_prefixes[mod_name] = detected_prefixes[mod_name] or {}
+            detected_prefixes[mod_name].tag = prefixes
+        end
+    end
+    
+    for mod_name, tarots in pairs(modded_tarots_by_mod) do
+        local prefixes = find_common_prefixes(tarots)
+        if #prefixes > 0 then
+            detected_prefixes[mod_name] = detected_prefixes[mod_name] or {}
+            detected_prefixes[mod_name].tarot = prefixes
+        end
+    end
+    
+    for mod_name, planets in pairs(modded_planets_by_mod) do
+        local prefixes = find_common_prefixes(planets)
+        if #prefixes > 0 then
+            detected_prefixes[mod_name] = detected_prefixes[mod_name] or {}
+            detected_prefixes[mod_name].planet = prefixes
+        end
+    end
+    
+    for mod_name, spectrals in pairs(modded_spectrals_by_mod) do
+        local prefixes = find_common_prefixes(spectrals)
+        if #prefixes > 0 then
+            detected_prefixes[mod_name] = detected_prefixes[mod_name] or {}
+            detected_prefixes[mod_name].spectral = prefixes
+        end
+    end
 end
 
 -- Update the refresh function
 local function refresh_modded_content()
     detect_all_modded_content()
+    detect_mod_prefixes()  -- Add this line
 end
-
 
 -- Enhancement, seal and edition options
 local enhancement_options = {
@@ -566,12 +751,25 @@ local seal_options = {
     {key = 'Purple', name = 'Purple Seal'}
 }
 
-local edition_options = {
+-- Edition options for jokers (includes negative)
+local joker_edition_options = {
+    {key = 'base', name = 'Base'},
+    {key = 'foil', name = 'Foil'},
+    {key = 'holo', name = 'Holographic'},
+    {key = 'polychrome', name = 'Polychrome'},
+    {key = 'negative', name = 'Negative'}
+}
+
+-- Edition options for cards (no negative)
+local card_edition_options = {
     {key = 'base', name = 'Base'},
     {key = 'foil', name = 'Foil'},
     {key = 'holo', name = 'Holographic'},
     {key = 'polychrome', name = 'Polychrome'}
 }
+
+-- Default to card editions for compatibility
+local edition_options = card_edition_options
 
 
 -- Function to detect and categorize all modded jokers
@@ -644,14 +842,12 @@ end
 
 -- Replace the old detect_modded_jokers() call with:
 detect_all_modded_content()
+detect_mod_prefixes()  -- Add this line
 
 -- Current enhancement/seal/edition selection - ensure proper initialization
 mod.config.current_enhancement = mod.config.current_enhancement or 'base'
 mod.config.current_seal = mod.config.current_seal or 'none'
 mod.config.current_edition = mod.config.current_edition or 'base'
-
--- Debug print current values
-print("ZokersModMenu: Initial enhancement/seal/edition: " .. mod.config.current_enhancement .. "/" .. mod.config.current_seal .. "/" .. mod.config.current_edition)
 
 -- Simple overlay creation function - IMPROVED with better tracking
 local function create_overlay(content)
@@ -719,6 +915,8 @@ mod._ante_scaled = {}
 -- GAME MODIFICATION HOOKS - Apply custom stats and deck
 -- Hook into game start to apply custom values
 local ref_Game_start_run = Game.start_run
+-- In Game:start_run, move the is_loaded_save check BEFORE the should_skip_animations logic:
+
 function Game:start_run(args)
     -- Reset deck replacement flags for new run
     mod._deck_replaced = false
@@ -736,8 +934,7 @@ function Game:start_run(args)
         return
     end
     
-    -- IMPORTANT: Only apply mod settings to NEW runs, not loaded saves
-    -- Check if this is a loaded save by looking for existing round number > 1 or if we're past ante 1
+    -- IMPORTANT: Check if this is a loaded save FIRST
     local is_loaded_save = false
     if args and args.savetext then
         is_loaded_save = true
@@ -754,6 +951,27 @@ function Game:start_run(args)
     end
     
     print("ZokersModMenu: New run detected, applying mod settings")
+    
+    -- Skip animations during initial setup if we have starting items
+    local should_skip_animations = (
+        (mod.config.use_starting_items and (
+            #mod.config.starting_jokers > 0 or 
+            #mod.config.starting_vouchers > 0 or 
+            #mod.config.starting_tags > 0
+        )) or
+        (mod.config.use_custom_deck and #mod.config.custom_deck > 0)
+    )
+    
+    if should_skip_animations then
+        -- Store original settings
+        mod._original_gamespeed = G.SETTINGS.GAMESPEED
+        mod._animation_restore_pending = true
+        
+        -- Set everything to instant
+        G.SETTINGS.GAMESPEED = 1000  -- Super high speed
+        
+        print("ZokersModMenu: Skipping animations for faster setup (speed: 1000), will restore after blind selection")
+    end
     
     -- Apply custom deck IMMEDIATELY if enabled
     if mod.config.use_custom_deck and #mod.config.custom_deck > 0 and G.playing_cards and G.deck and not mod._deck_replaced then
@@ -990,74 +1208,80 @@ function Game:start_run(args)
             end
         }))
     end
-    
-    -- Apply starting vouchers if enabled - FIXED to apply immediately
+
+    -- Apply starting vouchers if enabled - with the fixed version
     if mod.config.use_starting_items and #mod.config.starting_vouchers > 0 then
         G.E_MANAGER:add_event(Event({
-            trigger = 'immediate',
+            trigger = 'after',
+            delay = 0.7,
             func = function()
-                if G.GAME and G.GAME.used_vouchers then
-                    for _, voucher_key in ipairs(mod.config.starting_vouchers) do
-                        if G.P_CENTERS[voucher_key] then
-                            G.GAME.used_vouchers[voucher_key] = true
-                            local voucher_obj = G.P_CENTERS[voucher_key]
-                            
-                            -- Handle paired vouchers
-                            if voucher_obj.requires then
-                                for _, req in ipairs(voucher_obj.requires) do
-                                    G.GAME.used_vouchers[req] = true
-                                end
-                            end
-                            
-                            -- Apply immediate effects for shop-related vouchers
-                            if voucher_key == "v_overstock_norm" then
-                                G.GAME.shop = G.GAME.shop or {}
-                                G.GAME.shop.joker_max = (G.GAME.shop.joker_max or 2) + 1
-                            elseif voucher_key == "v_overstock_plus" then
-                                G.GAME.shop = G.GAME.shop or {}
-                                G.GAME.shop.joker_max = (G.GAME.shop.joker_max or 2) + 1
-                            end
-                            
-                            -- Apply voucher effect
-                            if voucher_obj.redeem then
-                                local success, err = pcall(function()
-                                    voucher_obj:redeem()
-                                end)
-                                if not success then
-                                    print("Voucher redeem error: " .. tostring(err))
-                                end
-                            end
+                -- Ensure used_vouchers table exists
+                G.GAME.used_vouchers = G.GAME.used_vouchers or {}
+                
+                for _, voucher_key in ipairs(mod.config.starting_vouchers) do
+                    if G.P_CENTERS[voucher_key] then
+                        -- Create a temporary card to properly redeem the voucher
+                        local voucher_card = Card(0, 0, G.CARD_W*0.7, G.CARD_H*0.7, nil, G.P_CENTERS[voucher_key])
+                        
+                        -- Set the cost to 0 BEFORE redeeming
+                        voucher_card.cost = 0
+                        voucher_card.ability.extra_cost = 0
+                        
+                        -- Store the redeem function
+                        local original_redeem = voucher_card.redeem
+                        
+                        -- Override redeem to prevent money changes
+                        voucher_card.redeem = function(self)
+                            local saved_dollars = G.GAME.dollars
+                            original_redeem(self)
+                            G.GAME.dollars = saved_dollars
                         end
+                        
+                        voucher_card:redeem()
+                        
+                        -- Ensure it's marked as used
+                        G.GAME.used_vouchers[voucher_key] = true
+                        
+                        -- Clean up the temporary card
+                        voucher_card:remove()
+                        
+                        print("ZokersModMenu: Applied starting voucher " .. voucher_key)
                     end
-                    print("ZokersModMenu: Applied " .. #mod.config.starting_vouchers .. " starting vouchers")
                 end
+                
+                -- Force UI update
+                if G.GAME.ROOM then
+                    G.GAME.ROOM:update_shop_text()
+                end
+                
+                print("ZokersModMenu: Applied " .. #mod.config.starting_vouchers .. " starting vouchers")
+                return true
+            end
+        }))
+    end
+
+    -- Restore animations after all items are applied
+    if should_skip_animations then
+        G.E_MANAGER:add_event(Event({
+            trigger = 'after',
+            delay = 1.0,
+            func = function()
+                -- Don't restore here anymore - wait for blind selection
+                print("ZokersModMenu: Speed restoration will happen on blind selection")
                 return true
             end
         }))
     end
 end
 
--- Hook to modify deck creation  
--- Intercept the deck initialization
-local ref_Game_init_game_object = Game.init_game_object
-function Game:init_game_object()
-    local ret = ref_Game_init_game_object(self)
-    
-    -- If custom deck is enabled and mod not disabled, set flags for replacement
-    if not mod.config.mod_disabled and mod.config.use_custom_deck and #mod.config.custom_deck > 0 then
-        mod._deck_needs_replacement = true
-        mod._deck_replaced = false
-        print("ZokersModMenu: Custom deck enabled, preparing for replacement")
-    end
-    
-    return ret
-end
-
 -- Fix for overstock vouchers - ensure shop slots are properly set
 local ref_create_shop = create_shop
 create_shop = function(dt)
-    -- Apply overstock vouchers before shop creation
-    if G.GAME and G.GAME.used_vouchers then
+    -- Ensure used_vouchers exists
+    if G.GAME then
+        G.GAME.used_vouchers = G.GAME.used_vouchers or {}
+        
+        -- Apply overstock vouchers before shop creation
         local overstock_count = 0
         if G.GAME.used_vouchers["v_overstock_norm"] then overstock_count = overstock_count + 1 end
         if G.GAME.used_vouchers["v_overstock_plus"] then overstock_count = overstock_count + 1 end
@@ -1182,6 +1406,23 @@ if init_game then
         end
         
         return ret
+    end
+end
+
+-- Hook blind selection to restore animation speed
+local ref_select_blind = G.FUNCS.select_blind
+G.FUNCS.select_blind = function(e)
+    -- Check if we need to restore animation speed
+    if mod._animation_restore_pending and mod._original_gamespeed then
+        G.SETTINGS.GAMESPEED = mod._original_gamespeed
+        mod._animation_restore_pending = false
+        mod._original_gamespeed = nil
+        print("ZokersModMenu: Animation speed restored to " .. G.SETTINGS.GAMESPEED)
+    end
+    
+    -- Call original function
+    if ref_select_blind then
+        return ref_select_blind(e)
     end
 end
 
@@ -1356,7 +1597,7 @@ local ref_Game_update = Game.update
 function Game:update(dt)
     -- Call original update
     ref_Game_update(self, dt)
-    
+
     -- Ensure free rerolls if enabled and mod not disabled
     if mod.config.free_rerolls and not mod.config.mod_disabled then
         if G.GAME and G.GAME.current_round then
@@ -1553,6 +1794,55 @@ G.FUNCS.setup_deck = function()
         mod._deck_needs_replacement = false
         print("ZokersModMenu: Custom deck setup complete in setup_deck (" .. cards_created .. " cards created)")
     end
+end
+
+-- Hook to ensure vouchers display in run info
+local ref_get_vouchers = G.UIDEF.run_info_vouchers
+G.UIDEF.run_info_vouchers = function()
+    if G.GAME and G.GAME.used_vouchers then
+        local voucher_nodes = {}
+        local voucher_list = {}
+        
+        -- Collect and sort vouchers
+        for voucher_key, _ in pairs(G.GAME.used_vouchers) do
+            if G.P_CENTERS[voucher_key] then
+                table.insert(voucher_list, voucher_key)
+            end
+        end
+        
+        -- Sort alphabetically by name
+        table.sort(voucher_list, function(a, b)
+            local name_a = G.P_CENTERS[a].name or a
+            local name_b = G.P_CENTERS[b].name or b
+            return name_a < name_b
+        end)
+        
+        -- Create nodes for each voucher
+        for _, voucher_key in ipairs(voucher_list) do
+            table.insert(voucher_nodes, {
+                n = G.UIT.C,
+                config = {align = "cm", padding = 0.05},
+                nodes = {
+                    {n = G.UIT.O, config = {object = DynaText({string = G.P_CENTERS[voucher_key].name or voucher_key, colours = {G.C.WHITE}, scale = 0.4})}}
+                }
+            })
+        end
+        
+        if #voucher_nodes > 0 then
+            return {
+                n = G.UIT.R,
+                config = {align = "cm", padding = 0.05},
+                nodes = voucher_nodes
+            }
+        end
+    end
+    
+    -- Fallback to original function if it exists
+    if ref_get_vouchers then
+        return ref_get_vouchers()
+    end
+    
+    return {n=G.UIT.R, config={align = "cm"}, nodes={}}
 end
 
 print("ZokersModMenu v2.1.0 loaded successfully!")
@@ -1845,7 +2135,7 @@ end
 -- Deck builder with clean uniform styling
 local function create_deck_builder()
     local suits = {'S', 'H', 'D', 'C'}
-    local suit_names = {'Spades', 'Hearts', 'Diamonds', 'Clubs'}
+    local suit_names = {'Spad', 'Hear', 'Diam', 'Club'}
     local ranks = {'A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K'}
     
     -- Get current enhancement/seal/edition display names
@@ -1866,7 +2156,7 @@ local function create_deck_builder()
     end
     
     local current_edition_name = "Base"
-    for _, edition in ipairs(edition_options) do
+    for _, edition in ipairs(card_edition_options) do
         if edition.key == mod.config.current_edition then
             current_edition_name = edition.name
             break
@@ -1965,6 +2255,18 @@ local function create_deck_builder()
                 button_colour = G.C.RED
             end
             
+            -- Smart text sizing for deck builder
+            local text_scale = 0.3
+            local display_text = button_text
+            
+            -- For deck builder, scale down if count makes it too long
+            if #display_text > 4 then
+                text_scale = text_scale * (4 / #display_text)
+                if text_scale < 0.2 then
+                    text_scale = 0.2
+                end
+            end
+            
             table.insert(suit_row.nodes, {
                 n = G.UIT.C,
                 config = {
@@ -1973,13 +2275,13 @@ local function create_deck_builder()
                     button = "cs_add_card",
                     ref_table = {rank = rank, suit = suit},
                     hover = true,
-                    minw = 0.7,
-                    minh = 0.5,
+                    minw = 0.7,  -- Fixed width
+                    minh = 0.5,  -- Fixed height
                     colour = button_colour,
                     r = 0.05
                 },
                 nodes = {
-                    {n = G.UIT.T, config = {text = button_text, scale = 0.3, colour = G.C.WHITE}}
+                    {n = G.UIT.T, config = {text = display_text, scale = text_scale, colour = G.C.WHITE}}
                 }
             })
         end
@@ -2060,61 +2362,185 @@ local function create_starting_items_menu()
     }
 end
 
+
+-- Get the mod name for this item
+local item_mod_name = nil
+if current_tab == "modded" then
+    if is_joker_menu then
+        item_mod_name = current_mod_tab
+    elseif is_tarot_menu then
+        item_mod_name = current_mod_tab
+    elseif is_planet_menu then
+        item_mod_name = current_mod_tab
+    elseif is_spectral_menu then
+        item_mod_name = current_mod_tab
+    elseif is_voucher_menu then
+        item_mod_name = current_mod_tab
+    elseif is_tag_menu then
+        item_mod_name = current_mod_tab
+    end
+elseif mod.config.give_type == "modded_consumable" then
+    -- For modded consumables, always use the stored mod name
+    item_mod_name = mod.config.current_mod_name
+end
+
 -- Helper function to format names for display
-local function format_name(name, prefix)
-    -- Handle modded prefixes more intelligently
-    if type(name) == "string" then
-        -- Remove common mod prefixes
-        local cleaned = name:gsub("^j_", "")      -- Remove j_ prefix
-                           :gsub("^v_", "")      -- Remove v_ prefix
-                           :gsub("^mp_", "")      -- Remove mp_ prefix
-                           :gsub("^c_", "")      -- Remove c_ prefix
-                           :gsub("^tag_", "")    -- Remove tag_ prefix
-                           :gsub("^p_", "")      -- Remove p_ prefix
-                           :gsub("^b_", "")      -- Remove b_ prefix
-                           :gsub("^mmc_", "")    -- Mika's Mod Collection
-                           :gsub("^poke_", "")   -- Pokermon
-                           :gsub("^cry_", "")    -- Cryptid
-                           :gsub("^jen_", "")    -- Jen's
-                           :gsub("^bunc_", "")   -- Bunco
-                           :gsub("^oiim_", "")   -- OIIM
-                           :gsub("_", " ")       -- Replace underscores with spaces
-                           :gsub("^[Jj]_", "")      -- Remove j_ or J_ prefix
-                   :gsub("^[Vv]_", "")      -- Remove v_ or V_ prefix
-                   :gsub("^[Cc]_", "")      -- Remove c_ or C_ prefix
-                   :gsub("^[Tt][Aa][Gg]_", "")    -- Remove tag_ or Tag_ prefix
-                   :gsub("^[Pp]_", "")      -- Remove p_ or P_ prefix
-                   :gsub("^[Bb]_", "")      -- Remove b_ or B_ prefix
-                   :gsub("^[Mm][Pp]_", "")     -- Remove mp_ or Mp_ or MP_ prefix
-                   :gsub("^[Mm][Pp] ", "")     -- Remove "Mp " prefix (with space)
-                   :gsub("^[Mm][Mm][Cc]_", "")    -- Remove mmc_ prefix (any case)
-                   :gsub("^[Pp][Oo][Kk][Ee]_", "")   -- Remove poke_ prefix (any case)
-                   :gsub("^[Cc][Rr][Yy]_", "")    -- Remove cry_ prefix (any case)
-                   :gsub("^[Jj][Ee][Nn]_", "")    -- Remove jen_ prefix (any case)
-                   :gsub("^[Bb][Uu][Nn][Cc]_", "")   -- Remove bunc_ prefix (any case)
-                   :gsub("^[Oo][Ii][Ii][Mm]_", "")   -- Remove oiim_ prefix (any case)
-                   :gsub("_", " ")       -- Replace underscores with spaces
-        -- Special case handling
-        if name == "j_caino" then return "Canio" end
-        if name == "j_ticket" then return "Golden Ticket" end
-        if name == "j_gluttenous_joker" then return "Gluttonous Joker" end
+local function format_name(name, mod_name)
+    if type(name) ~= "string" then
+        return tostring(name)
+    end
+    
+    local display_name = name
+    
+    -- First, check if this is a key and we can get the actual name from game data
+    if G.P_CENTERS and G.P_CENTERS[name] and G.P_CENTERS[name].name then
+        display_name = G.P_CENTERS[name].name
+    elseif G.P_TAGS and G.P_TAGS[name] and G.P_TAGS[name].name then
+        display_name = G.P_TAGS[name].name
+    end
+    
+    -- Now clean the display name
+    local cleaned = display_name
+    
+    -- First, always remove standard game prefixes from keys
+    if display_name == name then
+        -- This is a key, not a display name
+        cleaned = cleaned:gsub("^j_", "")
+        cleaned = cleaned:gsub("^v_", "")
+        cleaned = cleaned:gsub("^c_", "")
+        cleaned = cleaned:gsub("^tag_", "")
+        cleaned = cleaned:gsub("^p_", "")
+        cleaned = cleaned:gsub("^b_", "")
+    end
+    
+    -- Use detected prefixes to clean up
+    if mod_name and detected_prefixes[mod_name] then
+        -- Extract mod-specific prefixes to remove
+        local prefixes_to_remove = {}
         
-        -- Capitalize each word
-        return cleaned:gsub("(%a)([%w_']*)", function(first, rest)
+        -- Get prefixes from detection
+        for item_type, prefixes in pairs(detected_prefixes[mod_name]) do
+            for _, prefix in ipairs(prefixes) do
+                -- Extract the mod part (e.g., "cry_" from "j_cry_")
+                local mod_part = prefix:gsub("^[jvctagpb]_", "")
+                prefixes_to_remove[mod_part] = true
+                prefixes_to_remove[prefix] = true
+            end
+        end
+        
+        -- Apply all prefixes
+        for prefix, _ in pairs(prefixes_to_remove) do
+            local old_cleaned = cleaned
+            
+            -- Try exact match
+            cleaned = cleaned:gsub("^" .. prefix:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1"), "")
+            
+            -- Try case variations
+            if cleaned == old_cleaned then
+                -- Try lowercase
+                local lower_pattern = "^" .. prefix:lower():gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")
+                if cleaned:lower():sub(1, #prefix) == prefix:lower() then
+                    cleaned = cleaned:sub(#prefix + 1)
+                end
+            end
+        end
+    end
+    
+    -- FALLBACK: Known common prefixes that might be missed
+    local common_prefixes = {
+        -- With separators
+        "cry%-", "cry_", "cry ", "Cry%-", "Cry_", "Cry ",
+        "garb%-", "garb_", "garb ", "Garb%-", "Garb_", "Garb ",
+        "jojo%-", "jojo_", "jojo ", "Jojo%-", "Jojo_", "Jojo ",
+        "mp%-", "mp_", "mp ", "Mp%-", "Mp_", "Mp ",
+        "poke%-", "poke_", "poke ", "Poke%-", "Poke_", "Poke ",
+        "bunc%-", "bunc_", "bunc ", "Bunc%-", "Bunc_", "Bunc ",
+        "mmc%-", "mmc_", "mmc ", "Mmc%-", "Mmc_", "Mmc ",
+        -- JoJo specific patterns
+        "jojo_stand_", "jojo_Stand_", "Jojo_stand_", "Jojo_Stand_",
+        "jojo_requiem_", "jojo_Requiem_", "Jojo_requiem_", "Jojo_Requiem_",
+        "jojoStand", "JojoStand", "jojoRequiem", "JojoRequiem",
+        -- Common suffixes
+        " Stand", " stand", " Requiem", " requiem",
+        -- Single letters that are leftovers
+        "^Y ", "^G ", "^E ",
+        -- Special cases
+        "^cry m$", "^cry M$", "^cryptid"
+    }
+    
+    -- Apply fallback prefixes
+    for _, prefix in ipairs(common_prefixes) do
+        cleaned = cleaned:gsub(prefix, "")
+    end
+    
+    -- Clean up any remaining single letters at start
+    cleaned = cleaned:gsub("^%u%s+", "")  -- Capital letter + space
+    cleaned = cleaned:gsub("^%l%s+", "")  -- Lowercase letter + space
+    
+    -- Final cleanup
+    cleaned = cleaned:gsub("_", " "):gsub("%-", " ")
+    cleaned = cleaned:gsub("^%s+", ""):gsub("%s+$", "")
+    
+    -- If we removed everything or left with very short string, use original
+    if cleaned == "" or #cleaned < 2 then
+        cleaned = display_name:gsub("_", " "):gsub("%-", " ")
+    end
+    
+    -- Capitalize if it was a key
+    if display_name == name then
+        cleaned = cleaned:gsub("(%a)([%w_']*)", function(first, rest)
             return first:upper() .. rest:lower()
         end)
     end
-    return tostring(name)
+    
+    return cleaned
+end
+
+-- Helper function to sort items by their display names
+local function sort_by_display_name(items, mod_name)
+    -- Create a table with both key and display name
+    local items_with_names = {}
+    for _, item in ipairs(items) do
+        local display_name = format_name(item, mod_name)
+        table.insert(items_with_names, {
+            key = item,
+            display_name = display_name
+        })
+    end
+    
+    -- Sort by display name (case-insensitive)
+    table.sort(items_with_names, function(a, b)
+        -- Convert to lowercase for comparison to ensure proper alphabetical order
+        local name_a = a.display_name:lower()
+        local name_b = b.display_name:lower()
+        
+        
+        return name_a < name_b
+    end)
+    
+    -- Extract just the keys in the new order
+    local sorted_items = {}
+    for _, item in ipairs(items_with_names) do
+        table.insert(sorted_items, item.key)
+    end
+    
+    return sorted_items
 end
 
 -- Variable to track which joker tab is active
 mod.config.active_joker_tab = mod.config.active_joker_tab or "vanilla"
+mod.config.mod_page_joker = mod.config.mod_page_joker or 1
+mod.config.mod_page_voucher = mod.config.mod_page_voucher or 1
+mod.config.mod_page_tag = mod.config.mod_page_tag or 1
+mod.config.mod_page_tarot = mod.config.mod_page_tarot or 1
+mod.config.mod_page_planet = mod.config.mod_page_planet or 1
+mod.config.mod_page_spectral = mod.config.mod_page_spectral or 1
 
 -- Enhanced joker selection menu with dynamic mod detection
 local function create_joker_menu()
     -- Refresh modded joker detection
     refresh_modded_content()
-    
+
     -- Initialize tab tracking
     mod.config.active_joker_tab = mod.config.active_joker_tab or "vanilla"
     -- Default to first mod instead of "all"
@@ -2127,23 +2553,24 @@ end
     mod.config.joker_page = mod.config.joker_page or 1
     
     -- Determine current joker list based on active tab
-    local current_joker_list = available_jokers
-    local is_modded = false
-    
+local current_joker_list = available_jokers
+local is_modded = false
+
 if mod.config.active_joker_tab == "modded" then
     is_modded = true
     current_joker_list = modded_jokers_by_mod[mod.config.active_mod_tab] or {}
+    -- Sort by display name for modded items
+    current_joker_list = sort_by_display_name(current_joker_list, mod.config.active_mod_tab)
+else
+    -- Sort vanilla items too
+    current_joker_list = sort_by_display_name(current_joker_list, nil)
 end
     
     local current_page = mod.config.joker_page or 1
-    local jokers_per_page = 24
+    local jokers_per_page = 20
     local start_index = (current_page - 1) * jokers_per_page + 1
     local end_index = math.min(start_index + jokers_per_page - 1, #current_joker_list)
     local total_pages = math.ceil(#current_joker_list / jokers_per_page)
--- Debug print to check the issue
-if is_modded then
-    print("ZokersModMenu: Modded jokers - Current list size: " .. #current_joker_list .. ", Total pages: " .. total_pages)
-end
     
 local joker_nodes = {
     -- Title
@@ -2157,7 +2584,7 @@ local joker_nodes = {
 
 -- Edition selection
 local current_edition_name = "Base"
-for _, edition in ipairs(edition_options) do
+for _, edition in ipairs(joker_edition_options) do
     if edition.key == mod.config.starting_joker_edition then
         current_edition_name = edition.name
         break
@@ -2191,11 +2618,38 @@ end
         local mod_tabs = {n = G.UIT.R, config = {align = "cm", padding = 0.05}, nodes = {}}
         
                 
-        -- Individual mod tabs
-        local mod_count = 0
+-- Individual mod tabs
+        local mod_list = {}
         for mod_name, _ in pairs(modded_jokers_by_mod) do
-            mod_count = mod_count + 1
-            if mod_count <= 5 then -- Limit to 5 tabs to prevent overflow
+            table.insert(mod_list, mod_name)
+        end
+        table.sort(mod_list)
+
+        local mods_per_page = 5
+        local start_idx = ((mod.config.mod_page_joker or 1) - 1) * mods_per_page + 1
+        local end_idx = math.min(start_idx + mods_per_page - 1, #mod_list)
+        local total_mod_pages = math.ceil(#mod_list / mods_per_page)
+
+        local mod_tabs = {n = G.UIT.R, config = {align = "cm", padding = 0.05}, nodes = {}}
+        
+        -- Left arrow
+        if total_mod_pages > 1 then
+            table.insert(mod_tabs.nodes, {
+                n = G.UIT.C, config = {align = "cm", padding = 0.04, 
+                    button = "cs_prev_mod_page_joker", 
+                    hover = true, minw = 0.6, minh = 0.6, 
+                    colour = {0.4, 0.4, 0.4, 1}, r = 0.08}, 
+                nodes = {{n = G.UIT.T, config = {text = "<", scale = 0.4, colour = G.C.WHITE}}}
+            })
+        else
+            -- Spacer
+            table.insert(mod_tabs.nodes, {n = G.UIT.C, config = {align = "cm", minw = 0.6, minh = 0.6}, nodes = {}})
+        end
+        
+        -- Mod buttons
+        for i = start_idx, end_idx do
+            local mod_name = mod_list[i]
+            if mod_name then
                 table.insert(mod_tabs.nodes, {
                     n = G.UIT.C, config = {align = "cm", padding = 0.04, 
                         button = "cs_switch_mod_tab", 
@@ -2207,8 +2661,22 @@ end
             end
         end
         
+        -- Right arrow
+        if total_mod_pages > 1 then
+            table.insert(mod_tabs.nodes, {
+                n = G.UIT.C, config = {align = "cm", padding = 0.04, 
+                    button = "cs_next_mod_page_joker", 
+                    hover = true, minw = 0.6, minh = 0.6, 
+                    colour = {0.4, 0.4, 0.4, 1}, r = 0.08}, 
+                nodes = {{n = G.UIT.T, config = {text = ">", scale = 0.4, colour = G.C.WHITE}}}
+            })
+        else
+            -- Spacer
+            table.insert(mod_tabs.nodes, {n = G.UIT.C, config = {align = "cm", minw = 0.6, minh = 0.6}, nodes = {}})
+        end
+        
         table.insert(joker_nodes, mod_tabs)
-    end
+end
 	
 
 -- Info
@@ -2220,7 +2688,7 @@ table.insert(joker_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1},
     local joker_grid = {n = G.UIT.R, config = {align = "cm", padding = 0.05}, nodes = {}}
     
     for i = start_index, end_index do
-        if (i - start_index) % 6 == 0 then
+        if (i - start_index) % 5 == 0 then
             table.insert(joker_grid.nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.02}, nodes = {}})
         end
         
@@ -2245,8 +2713,14 @@ table.insert(joker_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1},
                 joker_name = joker_key
             end
             
+            -- Get the mod name for this joker
+            local joker_mod_name = nil
+            if is_modded then
+                joker_mod_name = mod.config.active_mod_tab
+            end
+            
             -- Always format the name to remove prefixes and capitalize
-            joker_name = format_name(joker_name, "")
+            joker_name = format_name(joker_name, joker_mod_name)
             
             local display_text = joker_name
             if count > 0 then
@@ -2258,6 +2732,31 @@ table.insert(joker_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1},
                 button_colour = {0.6, 0.2, 0.8, 1}
             end
             
+-- Smart text sizing
+local text_scale = 0.23
+local max_chars = 12
+local display_name = joker_name
+if count > 0 then
+    -- Account for count display
+    max_chars = max_chars - 3 - string.len(tostring(count))
+end
+
+-- Truncate or scale
+if #display_name > max_chars then
+    -- Try scaling first
+    text_scale = text_scale * (max_chars / #display_name)
+    if text_scale < 0.15 then
+        -- If too small, truncate instead
+        display_name = string.sub(display_name, 1, max_chars - 2) .. ".."
+        text_scale = 0.23
+    end
+end
+
+local final_text = display_name
+if count > 0 then
+    final_text = display_name .. " (" .. count .. ")"
+end
+
 table.insert(joker_grid.nodes[#joker_grid.nodes].nodes, {
     n = G.UIT.C,
     config = {
@@ -2266,13 +2765,13 @@ table.insert(joker_grid.nodes[#joker_grid.nodes].nodes, {
         button = "cs_toggle_joker",
         ref_table = {joker_key = joker_key},
         hover = true,
-        minw = 1.6,
-        minh = 0.7,
+        minw = 1.6,  -- Fixed width
+        minh = 0.7,  -- Fixed height
         colour = button_colour,
         r = 0.05
     },
     nodes = {
-        {n = G.UIT.T, config = {text = display_text, scale = 0.23, colour = G.C.WHITE}}
+        {n = G.UIT.T, config = {text = final_text, scale = text_scale, colour = G.C.WHITE}}
     }
 })
         end
@@ -2333,14 +2832,19 @@ local function create_voucher_menu()
     end
     mod.config.voucher_page = mod.config.voucher_page or 1
     
-    -- Determine current voucher list based on active tab
-    local current_voucher_list = available_vouchers
-    local is_modded = false
-    
-    if mod.config.active_voucher_tab == "modded" then
-        is_modded = true
-        current_voucher_list = modded_vouchers_by_mod[mod.config.active_voucher_mod_tab] or {}
-    end
+-- Determine current voucher list based on active tab
+local current_voucher_list = available_vouchers
+local is_modded = false
+
+if mod.config.active_voucher_tab == "modded" then
+    is_modded = true
+    current_voucher_list = modded_vouchers_by_mod[mod.config.active_voucher_mod_tab] or {}
+    -- Sort by display name
+    current_voucher_list = sort_by_display_name(current_voucher_list, mod.config.active_voucher_mod_tab)
+else
+    -- Sort vanilla items too
+    current_voucher_list = sort_by_display_name(current_voucher_list, nil)
+end
     
     local current_page = mod.config.voucher_page or 1
     local vouchers_per_page = 20
@@ -2374,21 +2878,74 @@ if table_length(modded_vouchers_by_mod) > 0 then
     
     -- Add mod-specific tabs if viewing modded vouchers
     if is_modded and table_length(modded_vouchers_by_mod) > 0 then
+        -- Get mod list for navigation
+        local mod_list = {}
+        for mod_name, _ in pairs(modded_vouchers_by_mod) do
+            table.insert(mod_list, mod_name)
+        end
+        table.sort(mod_list)
+
+        local mods_per_page = 5
+        local start_idx = ((mod.config.mod_page_voucher or 1) - 1) * mods_per_page + 1
+        local end_idx = math.min(start_idx + mods_per_page - 1, #mod_list)
+        local total_mod_pages = math.ceil(#mod_list / mods_per_page)
+
         local mod_tabs = {n = G.UIT.R, config = {align = "cm", padding = 0.05}, nodes = {}}
         
-        local mod_count = 0
-        for mod_name, _ in pairs(modded_vouchers_by_mod) do
-            mod_count = mod_count + 1
-            if mod_count <= 5 then
+        -- Left arrow
+        if total_mod_pages > 1 then
+            table.insert(mod_tabs.nodes, {
+                n = G.UIT.C, config = {align = "cm", padding = 0.04, 
+                    button = "cs_prev_mod_page_voucher", 
+                    hover = true, minw = 0.6, minh = 0.6, 
+                    colour = {0.4, 0.4, 0.4, 1}, r = 0.08}, 
+                nodes = {{n = G.UIT.T, config = {text = "<", scale = 0.4, colour = G.C.WHITE}}}
+            })
+        else
+            -- Spacer
+            table.insert(mod_tabs.nodes, {n = G.UIT.C, config = {align = "cm", minw = 0.6, minh = 0.6}, nodes = {}})
+        end
+        
+        -- Mod buttons
+        for i = start_idx, end_idx do
+            local mod_name = mod_list[i]
+            if mod_name then
+                -- Smart text sizing for mod tabs
+                local text_scale = 0.3
+                local max_chars = 12
+                local display_name = mod_name
+                
+                if #display_name > max_chars then
+                    text_scale = text_scale * (max_chars / #display_name)
+                    if text_scale < 0.2 then
+                        display_name = string.sub(display_name, 1, max_chars - 2) .. ".."
+                        text_scale = 0.3
+                    end
+                end
+                
                 table.insert(mod_tabs.nodes, {
                     n = G.UIT.C, config = {align = "cm", padding = 0.04, 
                         button = "cs_voucher_switch_mod_tab", 
                         ref_table = {mod_name = mod_name},
                         hover = true, minw = 1.8, minh = 0.6, 
                         colour = mod.config.active_voucher_mod_tab == mod_name and {0.2, 0.8, 0.8, 1} or {0.3, 0.3, 0.3, 1}, r = 0.08}, 
-                    nodes = {{n = G.UIT.T, config = {text = string.sub(mod_name, 1, 12), scale = 0.3, colour = G.C.WHITE}}}
+                    nodes = {{n = G.UIT.T, config = {text = display_name, scale = text_scale, colour = G.C.WHITE}}}
                 })
             end
+        end
+        
+        -- Right arrow
+        if total_mod_pages > 1 then
+            table.insert(mod_tabs.nodes, {
+                n = G.UIT.C, config = {align = "cm", padding = 0.04, 
+                    button = "cs_next_mod_page_voucher", 
+                    hover = true, minw = 0.6, minh = 0.6, 
+                    colour = {0.4, 0.4, 0.4, 1}, r = 0.08}, 
+                nodes = {{n = G.UIT.T, config = {text = ">", scale = 0.4, colour = G.C.WHITE}}}
+            })
+        else
+            -- Spacer
+            table.insert(mod_tabs.nodes, {n = G.UIT.C, config = {align = "cm", minw = 0.6, minh = 0.6}, nodes = {}})
         end
         
         table.insert(voucher_nodes, mod_tabs)
@@ -2407,7 +2964,7 @@ table.insert(voucher_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}
             table.insert(voucher_grid.nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.02}, nodes = {}})
         end
         
-        local voucher_key = available_vouchers[i]
+        local voucher_key = current_voucher_list[i]
         if voucher_key then
             local is_selected = false
             
@@ -2426,14 +2983,33 @@ table.insert(voucher_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}
                 voucher_name = voucher_key
             end
             
+            -- Get the mod name for this voucher
+            local voucher_mod_name = is_modded and mod.config.active_voucher_mod_tab or nil
+            
             -- Always format the name
-            voucher_name = format_name(voucher_name, "")
+            voucher_name = format_name(voucher_name, voucher_mod_name)
             local display_text = voucher_name
             
             -- Always use blue color for selection buttons, purple if selected
             local button_colour = {0.4, 0.4, 0.8, 1}
             if is_selected then
                 button_colour = {0.6, 0.2, 0.8, 1}  -- Purple when selected
+            end
+            
+            -- Smart text sizing for uniform buttons
+            local text_scale = 0.26
+            local max_chars = 15
+            local display_name = voucher_name
+            
+            -- Truncate or scale
+            if #display_name > max_chars then
+                -- Try scaling first
+                text_scale = text_scale * (max_chars / #display_name)
+                if text_scale < 0.18 then
+                    -- If too small, truncate instead
+                    display_name = string.sub(display_name, 1, max_chars - 2) .. ".."
+                    text_scale = 0.26
+                end
             end
             
             table.insert(voucher_grid.nodes[#voucher_grid.nodes].nodes, {
@@ -2444,13 +3020,13 @@ table.insert(voucher_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}
                     button = "cs_toggle_voucher",
                     ref_table = {voucher_key = voucher_key},
                     hover = true,
-                    minw = 1.9,
-                    minh = 0.7,
+                    minw = 1.9,  -- Fixed width
+                    minh = 0.7,  -- Fixed height
                     colour = button_colour,
                     r = 0.05
                 },
                 nodes = {
-                    {n = G.UIT.T, config = {text = display_text, scale = 0.26, colour = G.C.WHITE}}
+                    {n = G.UIT.T, config = {text = display_name, scale = text_scale, colour = G.C.WHITE}}
                 }
             })
         end
@@ -2509,14 +3085,19 @@ local function create_tag_menu()
     end
     mod.config.tag_page = mod.config.tag_page or 1
     
-    -- Determine current tag list based on active tab
-    local current_tag_list = available_tags
-    local is_modded = false
-    
-    if mod.config.active_tag_tab == "modded" then
-        is_modded = true
-        current_tag_list = modded_tags_by_mod[mod.config.active_tag_mod_tab] or {}
-    end
+-- Determine current tag list based on active tab
+local current_tag_list = available_tags
+local is_modded = false
+
+if mod.config.active_tag_tab == "modded" then
+    is_modded = true
+    current_tag_list = modded_tags_by_mod[mod.config.active_tag_mod_tab] or {}
+    -- Sort by display name
+    current_tag_list = sort_by_display_name(current_tag_list, mod.config.active_tag_mod_tab)
+else
+    -- Sort vanilla items too
+    current_tag_list = sort_by_display_name(current_tag_list, nil)
+end
     
     local current_page = mod.config.tag_page or 1
     local tags_per_page = 20
@@ -2601,12 +3182,31 @@ table.insert(tag_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1},
                 tag_name = tag_key
             end
             
+            -- Get the mod name for this tag
+            local tag_mod_name = is_modded and mod.config.active_tag_mod_tab or nil
+            
             -- Always format the name
-            tag_name = format_name(tag_name, "")
+            tag_name = format_name(tag_name, tag_mod_name)
             
             local button_colour = {0.4, 0.4, 0.8, 1}
             if is_selected then
                 button_colour = {0.6, 0.2, 0.8, 1}
+            end
+            
+            -- Smart text sizing for uniform buttons
+            local text_scale = 0.26
+            local max_chars = 15
+            local display_name = tag_name
+            
+            -- Truncate or scale
+            if #display_name > max_chars then
+                -- Try scaling first
+                text_scale = text_scale * (max_chars / #display_name)
+                if text_scale < 0.18 then
+                    -- If too small, truncate instead
+                    display_name = string.sub(display_name, 1, max_chars - 2) .. ".."
+                    text_scale = 0.26
+                end
             end
             
             table.insert(tag_grid.nodes[#tag_grid.nodes].nodes, {
@@ -2617,13 +3217,13 @@ table.insert(tag_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1},
                     button = "cs_toggle_tag",
                     ref_table = {tag_key = tag_key},
                     hover = true,
-                    minw = 1.9,
-                    minh = 0.7,
+                    minw = 1.9,  -- Fixed width
+                    minh = 0.7,  -- Fixed height
                     colour = button_colour,
                     r = 0.05
                 },
                 nodes = {
-                    {n = G.UIT.T, config = {text = tag_name, scale = 0.26, colour = G.C.WHITE}}
+                    {n = G.UIT.T, config = {text = display_name, scale = text_scale, colour = G.C.WHITE}}
                 }
             })
         end
@@ -2820,6 +3420,15 @@ local function create_consumable_type_menu()
                 {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_spectral", hover = true, minw = 3, minh = 1, colour = {0.4, 0.8, 0.4, 1}, r = 0.1}, 
                  nodes = {{n = G.UIT.T, config = {text = "Spectral", scale = 0.5, colour = G.C.WHITE}}}}
             }},
+			
+            -- Always show modded button if any modded consumables exist
+            (table_length(modded_other_consumables_by_mod) > 0 or
+             table_length(modded_tarots_by_mod) > 0 or
+             table_length(modded_planets_by_mod) > 0 or
+             table_length(modded_spectrals_by_mod) > 0) and {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+                {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_modded_consumable", hover = true, minw = 3, minh = 1, colour = {0.8, 0.5, 0.2, 1}, r = 0.1}, 
+                 nodes = {{n = G.UIT.T, config = {text = "Modded", scale = 0.5, colour = G.C.WHITE}}}}
+            }} or nil,
             
             -- Spacing
             {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {}},
@@ -2864,7 +3473,7 @@ local function create_give_card_menu()
     end
     
     local current_edition_name = "Base"
-    for _, edition in ipairs(edition_options) do
+    for _, edition in ipairs(card_edition_options) do
         if edition.key == mod.config.give_card_edition then
             current_edition_name = edition.name
             break
@@ -2982,8 +3591,10 @@ local function create_card_selection_menu(card_list, title, give_function_name)
         
         if current_tab == "vanilla" then
             actual_card_list = available_jokers
+            actual_card_list = sort_by_display_name(actual_card_list, nil)
         else
             actual_card_list = modded_jokers_by_mod[current_mod_tab] or {}
+            actual_card_list = sort_by_display_name(actual_card_list, current_mod_tab)
         end
         
     elseif is_tarot_menu then
@@ -3003,8 +3614,10 @@ local function create_card_selection_menu(card_list, title, give_function_name)
         
         if current_tab == "vanilla" then
             actual_card_list = tarot_cards
+            actual_card_list = sort_by_display_name(actual_card_list, nil)
         else
             actual_card_list = modded_tarots_by_mod[current_mod_tab] or {}
+            actual_card_list = sort_by_display_name(actual_card_list, current_mod_tab)
         end
         
     elseif is_planet_menu then
@@ -3024,8 +3637,10 @@ local function create_card_selection_menu(card_list, title, give_function_name)
         
         if current_tab == "vanilla" then
             actual_card_list = planet_cards
+            actual_card_list = sort_by_display_name(actual_card_list, nil)
         else
             actual_card_list = modded_planets_by_mod[current_mod_tab] or {}
+            actual_card_list = sort_by_display_name(actual_card_list, current_mod_tab)
         end
         
     elseif is_spectral_menu then
@@ -3045,8 +3660,10 @@ local function create_card_selection_menu(card_list, title, give_function_name)
         
         if current_tab == "vanilla" then
             actual_card_list = spectral_cards
+            actual_card_list = sort_by_display_name(actual_card_list, nil)
         else
             actual_card_list = modded_spectrals_by_mod[current_mod_tab] or {}
+            actual_card_list = sort_by_display_name(actual_card_list, current_mod_tab)
         end
         
     elseif is_voucher_menu then
@@ -3066,8 +3683,10 @@ local function create_card_selection_menu(card_list, title, give_function_name)
         
         if current_tab == "vanilla" then
             actual_card_list = available_vouchers
+            actual_card_list = sort_by_display_name(actual_card_list, nil)
         else
             actual_card_list = modded_vouchers_by_mod[current_mod_tab] or {}
+            actual_card_list = sort_by_display_name(actual_card_list, current_mod_tab)
         end
         
     elseif is_tag_menu then
@@ -3087,8 +3706,10 @@ local function create_card_selection_menu(card_list, title, give_function_name)
         
         if current_tab == "vanilla" then
             actual_card_list = available_tags
+            actual_card_list = sort_by_display_name(actual_card_list, nil)
         else
             actual_card_list = modded_tags_by_mod[current_mod_tab] or {}
+            actual_card_list = sort_by_display_name(actual_card_list, current_mod_tab)
         end
     end
     
@@ -3107,7 +3728,7 @@ local function create_card_selection_menu(card_list, title, give_function_name)
 	-- Add edition selection for joker menu (above tabs)
 if is_joker_menu then
     local current_edition_name = "Base"
-    for _, edition in ipairs(edition_options) do
+    for _, edition in ipairs(joker_edition_options) do
         if edition.key == mod.config.give_joker_edition then
             current_edition_name = edition.name
             break
@@ -3136,14 +3757,44 @@ end
              nodes = {{n = G.UIT.T, config = {text = "Modded", scale = 0.5, colour = G.C.WHITE}}}}
         }})
         
-        -- Add mod-specific tabs if viewing modded items
+                -- Add mod-specific tabs if viewing modded items
         if current_tab == "modded" and table_length(modded_items_by_mod) > 0 then
+            -- Get mod list for navigation
+            local mod_list = {}
+            for mod_name, _ in pairs(modded_items_by_mod) do
+                table.insert(mod_list, mod_name)
+            end
+            table.sort(mod_list)
+
+            -- Determine which page variable to use based on tab type
+            local page_var_name = "give_mod_page_" .. tab_type
+            mod.config[page_var_name] = mod.config[page_var_name] or 1
+            
+            local mods_per_page = 5
+            local start_idx = ((mod.config[page_var_name] or 1) - 1) * mods_per_page + 1
+            local end_idx = math.min(start_idx + mods_per_page - 1, #mod_list)
+            local total_mod_pages = math.ceil(#mod_list / mods_per_page)
+
             local mod_tabs = {n = G.UIT.R, config = {align = "cm", padding = 0.05}, nodes = {}}
             
-            local mod_count = 0
-            for mod_name, _ in pairs(modded_items_by_mod) do
-                mod_count = mod_count + 1
-                if mod_count <= 5 then
+            -- Left arrow
+            if total_mod_pages > 1 then
+                table.insert(mod_tabs.nodes, {
+                    n = G.UIT.C, config = {align = "cm", padding = 0.04, 
+                        button = "cs_give_prev_mod_page_" .. tab_type, 
+                        hover = true, minw = 0.6, minh = 0.6, 
+                        colour = {0.4, 0.4, 0.4, 1}, r = 0.08}, 
+                    nodes = {{n = G.UIT.T, config = {text = "<", scale = 0.4, colour = G.C.WHITE}}}
+                })
+            else
+                -- Spacer
+                table.insert(mod_tabs.nodes, {n = G.UIT.C, config = {align = "cm", minw = 0.6, minh = 0.6}, nodes = {}})
+            end
+            
+            -- Mod buttons
+            for i = start_idx, end_idx do
+                local mod_name = mod_list[i]
+                if mod_name then
                     table.insert(mod_tabs.nodes, {
                         n = G.UIT.C, config = {align = "cm", padding = 0.04, 
                             button = "cs_give_" .. tab_type .. "_switch_mod_tab", 
@@ -3153,6 +3804,20 @@ end
                         nodes = {{n = G.UIT.T, config = {text = string.sub(mod_name, 1, 12), scale = 0.3, colour = G.C.WHITE}}}
                     })
                 end
+            end
+            
+            -- Right arrow
+            if total_mod_pages > 1 then
+                table.insert(mod_tabs.nodes, {
+                    n = G.UIT.C, config = {align = "cm", padding = 0.04, 
+                        button = "cs_give_next_mod_page_" .. tab_type, 
+                        hover = true, minw = 0.6, minh = 0.6, 
+                        colour = {0.4, 0.4, 0.4, 1}, r = 0.08}, 
+                    nodes = {{n = G.UIT.T, config = {text = ">", scale = 0.4, colour = G.C.WHITE}}}
+                })
+            else
+                -- Spacer
+                table.insert(mod_tabs.nodes, {n = G.UIT.C, config = {align = "cm", minw = 0.6, minh = 0.6}, nodes = {}})
             end
             
             table.insert(card_nodes, mod_tabs)
@@ -3192,33 +3857,70 @@ table.insert(card_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1},
 -- Try to get the name from the game data first
 if center_or_tag and center_or_tag.name then
     card_name = center_or_tag.name
-    -- Still format it to ensure consistency
-    card_name = format_name(card_name, "")
 else
-    -- Fallback to formatting the key directly
-    card_name = format_name(card_key, "")
+    card_name = card_key
 end
+
+-- Get the mod name for this item
+local item_mod_name = nil
+if current_tab == "modded" then
+    if is_joker_menu then
+        item_mod_name = current_mod_tab
+    elseif is_tarot_menu then
+        item_mod_name = current_mod_tab
+    elseif is_planet_menu then
+        item_mod_name = current_mod_tab
+    elseif is_spectral_menu then
+        item_mod_name = current_mod_tab
+    elseif is_voucher_menu then
+        item_mod_name = current_mod_tab
+    elseif is_tag_menu then
+        item_mod_name = current_mod_tab
+    end
+elseif mod.config.give_type == "modded_consumable" then
+    -- For modded consumables, always use the stored mod name
+    item_mod_name = mod.config.current_mod_name
+end
+
+-- Format the name
+card_name = format_name(card_name, item_mod_name)
             
             -- Always use blue color for give menus
             local button_colour = {0.4, 0.4, 0.8, 1}
             
-            table.insert(card_grid.nodes[#card_grid.nodes].nodes, {
-                n = G.UIT.C,
-                config = {
-                    align = "cm",
-                    padding = 0.05,
-                    button = give_function_name,
-                    ref_table = {card_key = card_key},
-                    hover = true,
-                    minw = 1.9,
-                    minh = 0.7,
-                    colour = button_colour,
-                    r = 0.05
-                },
-                nodes = {
-                    {n = G.UIT.T, config = {text = card_name, scale = 0.26, colour = G.C.WHITE}}
-                }
-            })
+-- Smart text sizing for uniform buttons
+local text_scale = 0.26
+local max_chars = 15
+local display_name = card_name
+
+-- Truncate or scale
+if #display_name > max_chars then
+    -- Try scaling first
+    text_scale = text_scale * (max_chars / #display_name)
+    if text_scale < 0.18 then
+        -- If too small, truncate instead
+        display_name = string.sub(display_name, 1, max_chars - 2) .. ".."
+        text_scale = 0.26
+    end
+end
+
+table.insert(card_grid.nodes[#card_grid.nodes].nodes, {
+    n = G.UIT.C,
+    config = {
+        align = "cm",
+        padding = 0.05,
+        button = give_function_name,
+        ref_table = {card_key = card_key},
+        hover = true,
+        minw = 1.9,  -- Fixed width
+        minh = 0.7,  -- Fixed height
+        colour = button_colour,
+        r = 0.05
+    },
+    nodes = {
+        {n = G.UIT.T, config = {text = display_name, scale = text_scale, colour = G.C.WHITE}}
+    }
+})
         end
     end
     
@@ -3529,7 +4231,7 @@ G.FUNCS.cs_cycle_give_edition = function(e)
     end
     
     current_index = current_index + 1
-    if current_index > #edition_options then
+    if current_index > #card_edition_options then
         current_index = 1
     end
     
@@ -3719,8 +4421,9 @@ G.FUNCS.cs_reset_all = function(e)
     print("ZokersModMenu: All settings reset to defaults")
 end
 
--- Give item functions
 G.FUNCS.cs_give_consumable = function(e)
+    -- Force refresh modded content
+    refresh_modded_content()
     create_overlay(create_consumable_type_menu())
 end
 
@@ -3745,6 +4448,322 @@ G.FUNCS.cs_give_spectral = function(e)
     create_overlay(create_card_selection_menu(spectral_cards, "SELECT SPECTRAL CARD", "cs_instant_give_card"))
 end
 
+-- Modded consumable selection menu
+local function create_modded_consumable_menu()
+    -- Refresh content
+    refresh_modded_content()
+    
+    local menu_nodes = {
+        -- Title
+        {n = G.UIT.R, config = {align = "cm", padding = 0.2, colour = {0, 0, 0, 1}, r = 0.1}, 
+         nodes = {{n = G.UIT.T, config = {text = "SELECT MODDED CONSUMABLE TYPE", scale = 0.8, colour = {1, 1, 1, 1}}}}},
+        
+        -- Spacing
+        {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {}},
+    }
+    
+    -- Check what types we have
+    local has_tarots = table_length(modded_tarots_by_mod) > 0
+    local has_planets = table_length(modded_planets_by_mod) > 0
+    local has_spectrals = table_length(modded_spectrals_by_mod) > 0
+    local has_other = table_length(modded_other_consumables_by_mod) > 0
+    
+    if has_tarots then
+        table.insert(menu_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+            {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_modded_tarot", hover = true, minw = 3, minh = 1, colour = {0.6, 0.2, 0.8, 1}, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "Modded Tarots", scale = 0.5, colour = G.C.WHITE}}}}
+        }})
+    end
+    
+    if has_planets then
+        table.insert(menu_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+            {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_modded_planet", hover = true, minw = 3, minh = 1, colour = {0.2, 0.6, 0.8, 1}, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "Modded Planets", scale = 0.5, colour = G.C.WHITE}}}}
+        }})
+    end
+    
+    if has_spectrals then
+        table.insert(menu_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+            {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_modded_spectral", hover = true, minw = 3, minh = 1, colour = {0.4, 0.8, 0.4, 1}, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "Modded Spectrals", scale = 0.5, colour = G.C.WHITE}}}}
+        }})
+    end
+    
+    if has_other then
+        table.insert(menu_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+            {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_give_modded_other", hover = true, minw = 3, minh = 1, colour = {0.8, 0.5, 0.2, 1}, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "Other Modded", scale = 0.5, colour = G.C.WHITE}}}}
+        }})
+    end
+    
+    -- Back button
+    table.insert(menu_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {}})
+    table.insert(menu_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+        {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_back_to_consumable_type", hover = true, minw = 3, minh = 1, colour = {0.6, 0.6, 0.6, 1}, r = 0.1}, 
+         nodes = {{n = G.UIT.T, config = {text = "Back", scale = 0.5, colour = G.C.WHITE}}}}
+    }})
+    
+    return {
+        n = G.UIT.ROOT,
+        config = {align = "cm", minw = 8, minh = 10, colour = {0, 0, 0, 0.8}, r = 0.1, padding = 0.1},
+        nodes = menu_nodes
+    }
+end
+
+-- Function to show consumable types for a specific mod
+local function create_modded_consumable_types_menu(mod_name)
+    local menu_nodes = {
+        -- Title
+        {n = G.UIT.R, config = {align = "cm", padding = 0.2, colour = {0, 0, 0, 1}, r = 0.1}, 
+         nodes = {{n = G.UIT.T, config = {text = mod_name:upper(), scale = 0.8, colour = {1, 1, 1, 1}}}}},
+        
+        -- Spacing
+        {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {}},
+    }
+    
+    -- Check what types this mod has
+    local has_types = false
+    
+    -- ONLY show other consumable types (NOT tarot/planet/spectral)
+    if modded_other_consumables_by_mod[mod_name] then
+        for type_name, items in pairs(modded_other_consumables_by_mod[mod_name]) do
+            if #items > 0 then
+                has_types = true
+                -- Remove duplicates
+                local seen = {}
+                local unique_items = {}
+                for _, item in ipairs(items) do
+                    if not seen[item] then
+                        seen[item] = true
+                        table.insert(unique_items, item)
+                    end
+                end
+                
+                -- Format the type name for display
+                local display_type_name = type_name:gsub("_", " "):gsub("^%l", string.upper)
+                
+                table.insert(menu_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+                    {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_select_modded_type", 
+                        ref_table = {mod_name = mod_name, type_name = type_name, type_key = "other", items = unique_items},
+                        hover = true, minw = 3, minh = 1, colour = {0.8, 0.5, 0.2, 1}, r = 0.1}, 
+                     nodes = {{n = G.UIT.T, config = {text = display_type_name, scale = 0.5, colour = G.C.WHITE}}}}
+                }})
+            end
+        end
+    end
+    
+    if not has_types then
+        table.insert(menu_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+            {n = G.UIT.T, config = {text = "No special consumables found", scale = 0.5, colour = {0.5, 0.5, 0.5, 1}}}
+        }})
+    end
+    
+    -- Back button - goes back to mod list
+    table.insert(menu_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {}})
+    table.insert(menu_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+        {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_back_to_consumable_type", hover = true, minw = 3, minh = 1, colour = {0.6, 0.6, 0.6, 1}, r = 0.1}, 
+         nodes = {{n = G.UIT.T, config = {text = "Back", scale = 0.5, colour = G.C.WHITE}}}}
+    }})
+    
+    return {
+        n = G.UIT.ROOT,
+        config = {align = "cm", minw = 8, minh = 10, colour = {0, 0, 0, 0.8}, r = 0.1, padding = 0.1},
+        nodes = menu_nodes
+    }
+end
+
+-- Function to list mods with consumables
+local function create_modded_consumable_mod_list()
+    local menu_nodes = {
+        -- Title
+        {n = G.UIT.R, config = {align = "cm", padding = 0.2, colour = {0, 0, 0, 1}, r = 0.1}, 
+         nodes = {{n = G.UIT.T, config = {text = "SELECT MOD", scale = 0.8, colour = {1, 1, 1, 1}}}}},
+        
+        -- Spacing
+        {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {}},
+    }
+    
+    -- Combine all mods that have any type of modded consumables
+    local all_mods = {}
+    
+    -- Add mods with other consumables
+    for mod_name, _ in pairs(modded_other_consumables_by_mod) do
+        all_mods[mod_name] = true
+    end
+    
+    -- Add mods with modded tarots/planets/spectrals
+    for mod_name, _ in pairs(modded_tarots_by_mod) do
+        all_mods[mod_name] = true
+    end
+    for mod_name, _ in pairs(modded_planets_by_mod) do
+        all_mods[mod_name] = true
+    end
+    for mod_name, _ in pairs(modded_spectrals_by_mod) do
+        all_mods[mod_name] = true
+    end
+    
+    -- Sort mod names
+    local sorted_mods = {}
+    for mod_name, _ in pairs(all_mods) do
+        table.insert(sorted_mods, mod_name)
+    end
+    table.sort(sorted_mods)
+    
+    -- Create buttons for each mod
+    for _, mod_name in ipairs(sorted_mods) do
+        table.insert(menu_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+            {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_select_modded_consumable_mod", 
+                ref_table = {mod_name = mod_name},
+                hover = true, minw = 3, minh = 1, colour = {0.6, 0.4, 0.8, 1}, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = mod_name, scale = 0.5, colour = G.C.WHITE}}}}
+        }})
+    end
+    
+    -- Back button - FIXED to go back to consumable type menu
+    table.insert(menu_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {}})
+    table.insert(menu_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+        {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_back_to_consumable_type", hover = true, minw = 3, minh = 1, colour = {0.6, 0.6, 0.6, 1}, r = 0.1}, 
+         nodes = {{n = G.UIT.T, config = {text = "Back", scale = 0.5, colour = G.C.WHITE}}}}
+    }})
+    
+    return {
+        n = G.UIT.ROOT,
+        config = {align = "cm", minw = 8, minh = 10, colour = {0, 0, 0, 0.8}, r = 0.1, padding = 0.1},
+        nodes = menu_nodes
+    }
+end
+
+G.FUNCS.cs_give_modded_tarot = function(e)
+    mod.config.give_tarot_tab = "modded"
+    mod.config.give_type = "tarot"
+    mod.config.give_page = 1
+    create_overlay(create_card_selection_menu(modded_tarots_by_mod[mod.config.give_tarot_mod_tab] or {}, "SELECT MODDED TAROT", "cs_instant_give_card"))
+end
+
+G.FUNCS.cs_give_modded_planet = function(e)
+    mod.config.give_planet_tab = "modded"
+    mod.config.give_type = "planet"
+    mod.config.give_page = 1
+    create_overlay(create_card_selection_menu(modded_planets_by_mod[mod.config.give_planet_mod_tab] or {}, "SELECT MODDED PLANET", "cs_instant_give_card"))
+end
+
+G.FUNCS.cs_give_modded_spectral = function(e)
+    mod.config.give_spectral_tab = "modded"
+    mod.config.give_type = "spectral"
+    mod.config.give_page = 1
+    create_overlay(create_card_selection_menu(modded_spectrals_by_mod[mod.config.give_spectral_mod_tab] or {}, "SELECT MODDED SPECTRAL", "cs_instant_give_card"))
+end
+
+-- Function to list mods with consumables
+local function create_modded_consumable_mod_list()
+    local menu_nodes = {
+        -- Title
+        {n = G.UIT.R, config = {align = "cm", padding = 0.2, colour = {0, 0, 0, 1}, r = 0.1}, 
+         nodes = {{n = G.UIT.T, config = {text = "SELECT MOD", scale = 0.8, colour = {1, 1, 1, 1}}}}},
+        
+        -- Spacing
+        {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {}},
+    }
+    
+    -- Combine all mods that have any type of modded consumables
+    local all_mods = {}
+    
+    -- Add mods with other consumables
+    for mod_name, _ in pairs(modded_other_consumables_by_mod) do
+        all_mods[mod_name] = true
+    end
+    
+    -- Add mods with modded tarots/planets/spectrals
+    for mod_name, _ in pairs(modded_tarots_by_mod) do
+        all_mods[mod_name] = true
+    end
+    for mod_name, _ in pairs(modded_planets_by_mod) do
+        all_mods[mod_name] = true
+    end
+    for mod_name, _ in pairs(modded_spectrals_by_mod) do
+        all_mods[mod_name] = true
+    end
+    
+    -- Sort mod names
+    local sorted_mods = {}
+    for mod_name, _ in pairs(all_mods) do
+        table.insert(sorted_mods, mod_name)
+    end
+    table.sort(sorted_mods)
+    
+    -- Create buttons for each mod
+    for _, mod_name in ipairs(sorted_mods) do
+        table.insert(menu_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+            {n = G.UIT.C, config = {align = "cm", padding = 0.08, button = "cs_select_modded_consumable_mod", 
+                ref_table = {mod_name = mod_name},
+                hover = true, minw = 3, minh = 1, colour = {0.6, 0.4, 0.8, 1}, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = mod_name, scale = 0.5, colour = G.C.WHITE}}}}
+        }})
+    end
+    
+    -- Back button - FIXED to go back to consumable type menu
+    table.insert(menu_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.15}, nodes = {}})
+    table.insert(menu_nodes, {n = G.UIT.R, config = {align = "cm", padding = 0.1}, nodes = {
+        {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_back_to_consumable_type", hover = true, minw = 3, minh = 1, colour = {0.6, 0.6, 0.6, 1}, r = 0.1}, 
+         nodes = {{n = G.UIT.T, config = {text = "Back", scale = 0.5, colour = G.C.WHITE}}}}
+    }})
+    
+    return {
+        n = G.UIT.ROOT,
+        config = {align = "cm", minw = 8, minh = 10, colour = {0, 0, 0, 0.8}, r = 0.1, padding = 0.1},
+        nodes = menu_nodes
+    }
+end
+
+-- When clicking "Modded" in consumable type menu
+G.FUNCS.cs_give_modded_consumable = function(e)
+    create_overlay(create_modded_consumable_mod_list())
+end
+
+-- When selecting a mod, show consumable types for that mod
+G.FUNCS.cs_select_modded_consumable_mod = function(e)
+    local mod_name = e.config.ref_table and e.config.ref_table.mod_name
+    if mod_name then
+        -- Store where we came from
+        mod.config.came_from_modded = true
+        create_overlay(create_modded_consumable_types_menu(mod_name))
+    end
+end
+
+G.FUNCS.cs_select_modded_type = function(e)
+    local mod_name = e.config.ref_table.mod_name
+    local type_name = e.config.ref_table.type_name
+    local type_key = e.config.ref_table.type_key
+    local items = e.config.ref_table.items
+    
+    local title = "SELECT " .. type_name:upper()
+    
+    -- Store these for back button navigation
+    mod.config.give_type = "modded_consumable"
+    mod.config.current_mod_name = mod_name
+    mod.config.current_type_name = type_name
+    mod.config.came_from_modded = true
+    
+    -- Process the items list ONCE
+    local seen = {}
+    local unique_items = {}
+    for _, item in ipairs(items or {}) do
+        if not seen[item] then
+            seen[item] = true
+            table.insert(unique_items, item)
+        end
+    end
+    
+    -- Sort by display name
+    local sorted_items = sort_by_display_name(unique_items, mod_name)
+    
+    -- Store the processed list for pagination
+    mod.config.current_modded_list = sorted_items
+    
+    mod.config.give_page = 1
+    create_overlay(create_card_selection_menu(sorted_items, title, "cs_instant_give_card"))
+end
+
 G.FUNCS.cs_give_voucher = function(e)
     mod.config.current_give_list = available_vouchers
     mod.config.give_type = "voucher"
@@ -3753,6 +4772,8 @@ G.FUNCS.cs_give_voucher = function(e)
 end
 
 G.FUNCS.cs_give_joker = function(e)
+    -- Force refresh modded content before opening
+    refresh_modded_content()
     mod.config.give_joker_tab = "vanilla"
     mod.config.give_type = "joker"
     mod.config.give_page = 1
@@ -3771,61 +4792,24 @@ G.FUNCS.cs_back_to_give = function(e)
 end
 
 G.FUNCS.cs_back_to_consumable_type = function(e)
-    if mod.config.give_type == "joker" or mod.config.give_type == "voucher" or mod.config.give_type == "tag" then
+    -- Check where we came from
+    if mod.config.came_from_modded then
+        -- We're in a modded consumable submenu, go back to mod list
+        mod.config.came_from_modded = false
+        create_overlay(create_modded_consumable_mod_list())
+    elseif mod.config.give_type == "modded_consumable" then
+        -- We're in the modded consumable mod list, go back to consumable type menu
+        create_overlay(create_consumable_type_menu())
+    elseif mod.config.give_type == "joker" or mod.config.give_type == "voucher" or mod.config.give_type == "tag" then
+        -- These come directly from give item menu
         create_overlay(create_give_item_menu())
     else
+        -- Regular consumables go back to consumable type menu
         create_overlay(create_consumable_type_menu())
     end
 end
 
--- FIXED instant give functions
-G.FUNCS.cs_instant_give_card = function(e)
-    local card_key = e.config.ref_table and e.config.ref_table.card_key
-    
-    if not card_key then
-        print("Error: No card key provided")
-        return
-    end
-    
-    -- Check if we're in a valid state
-    if not G.STATE or G.STATE == G.STATES.MENU then
-        print("Error: Cannot give consumables from menu, must be in a run")
-        return
-    end
-    
-    if G.consumeables and G.P_CENTERS and G.P_CENTERS[card_key] then
-        local center = G.P_CENTERS[card_key]
-        
-        -- Create consumable with event
-        G.E_MANAGER:add_event(Event({
-            trigger = 'immediate',
-            func = function()
-                local card = Card(
-                    G.consumeables.T.x + G.consumeables.T.w/2,
-                    G.consumeables.T.y,
-                    G.CARD_W, G.CARD_H,
-                    nil,
-                    center,
-                    {bypass_discovery_center = true, bypass_discovery_ui = true}
-                )
-                
-                if card then
-                    card:add_to_deck()
-                    G.consumeables:emplace(card)
-                    card:start_materialize()
-                    print("Given: " .. card_key)
-                else
-                    print("Error: Failed to create consumable")
-                end
-                return true
-            end
-        }))
-    else
-        print("Error: Center not found for " .. (card_key or "nil"))
-    end
-end
-
--- FIXED instant give voucher - handle nil ante_scaling and avoid crashes
+-- Instant give voucher
 G.FUNCS.cs_instant_give_voucher = function(e)
     local voucher_key = e.config.ref_table and e.config.ref_table.card_key
     
@@ -3834,129 +4818,89 @@ G.FUNCS.cs_instant_give_voucher = function(e)
         return
     end
     
+    -- Check if we're in a valid state
+    if not G.STATE or G.STATE == G.STATES.MENU then
+        print("Error: Cannot give vouchers from menu, must be in a run")
+        return
+    end
+    
     if G.P_CENTERS[voucher_key] then
-        -- Force add to used vouchers
+        -- Ensure used_vouchers exists
         G.GAME.used_vouchers = G.GAME.used_vouchers or {}
-        G.GAME.used_vouchers[voucher_key] = true
         
-        local voucher_obj = G.P_CENTERS[voucher_key]
-        
-        -- Handle paired vouchers
-        if voucher_obj.requires then
-            for _, req in ipairs(voucher_obj.requires) do
-                G.GAME.used_vouchers[req] = true
+        -- Create event to properly give the voucher
+        G.E_MANAGER:add_event(Event({
+            trigger = 'immediate',
+            func = function()
+                -- Store current money BEFORE creating card
+                local saved_money = G.GAME.dollars
+                
+                -- Create a temporary voucher card
+                local voucher_card = Card(
+                    G.play and G.play.T.x or 0,
+                    G.play and G.play.T.y or 0,
+                    G.CARD_W*0.7,
+                    G.CARD_H*0.7,
+                    nil,
+                    G.P_CENTERS[voucher_key],
+                    {bypass_discovery_center = true, bypass_discovery_ui = true}
+                )
+                
+                if voucher_card then
+                    -- Set cost to 0 BEFORE redeeming
+                    voucher_card.cost = 0
+                    
+                    -- Use the game's native redeem function
+                    voucher_card:redeem()
+                    
+                    -- Force restore the money to original amount
+                    G.GAME.dollars = saved_money
+                    
+                    -- Ensure it's marked as used
+                    G.GAME.used_vouchers[voucher_key] = true
+                    
+                    -- Handle paired vouchers
+                    local voucher_obj = G.P_CENTERS[voucher_key]
+                    if voucher_obj.requires then
+                        for _, req in ipairs(voucher_obj.requires) do
+                            G.GAME.used_vouchers[req] = true
+                        end
+                    end
+                    
+                    -- Show the voucher card briefly
+                    voucher_card:juice_up(0.3, 0.5)
+                    
+                    -- Remove the card after a delay
+                    G.E_MANAGER:add_event(Event({
+                        trigger = 'after',
+                        delay = 0.5,
+                        func = function()
+                            voucher_card:start_dissolve()
+                            return true
+                        end
+                    }))
+                    
+                    -- Update shop text if in shop
+                    if G.GAME.ROOM and G.STATE == G.STATES.SHOP then
+                        G.GAME.ROOM:update_shop_text()
+                    end
+                    
+                    -- Play sound effect
+                    play_sound('card1', 1.2, 0.4)
+                    
+                    print("Given voucher: " .. voucher_key .. "")
+                else
+                    print("Error: Failed to create voucher card")
+                end
+                return true
             end
-        end
-        
-        -- Direct voucher effect application
-        if voucher_key == "v_grabber" then
-            G.jokers.config.card_limit = G.jokers.config.card_limit + 1
-            print("Applied Grabber - Extra joker slot (now " .. G.jokers.config.card_limit .. ")")
-        elseif voucher_key == "v_nacho_tong" then
-            G.jokers.config.card_limit = G.jokers.config.card_limit + 1
-            print("Applied Nacho Tong - Extra joker slot (now " .. G.jokers.config.card_limit .. ")")
-        elseif voucher_key == "v_wasteful" then
-            G.consumeables.config.card_limit = G.consumeables.config.card_limit + 1
-            print("Applied Wasteful - Extra consumable slot (now " .. G.consumeables.config.card_limit .. ")")
-        elseif voucher_key == "v_recyclomancy" then
-            G.consumeables.config.card_limit = G.consumeables.config.card_limit + 1
-            print("Applied Recyclomancy - Extra consumable slot (now " .. G.consumeables.config.card_limit .. ")")
-        elseif voucher_key == "v_overstock_norm" then
-            G.GAME.shop = G.GAME.shop or {}
-            G.GAME.shop.joker_max = (G.GAME.shop.joker_max or 2) + 1
-            print("Applied Overstock - Extra shop slot")
-        elseif voucher_key == "v_overstock_plus" then
-            G.GAME.shop = G.GAME.shop or {}
-            G.GAME.shop.joker_max = (G.GAME.shop.joker_max or 2) + 1
-            print("Applied Overstock+ - Extra shop slot")
-        elseif voucher_key == "v_seed_money" then
-            G.GAME.interest_cap = (G.GAME.interest_cap or 25) + 25
-            print("Applied Seed Money - Interest cap raised to " .. G.GAME.interest_cap)
-        elseif voucher_key == "v_money_tree" then
-            G.GAME.interest_cap = math.max(50, (G.GAME.interest_cap or 25))
-            G.GAME.interest_amount = (G.GAME.interest_amount or 1) + 1
-            print("Applied Money Tree - Interest improved")
-        elseif voucher_key == "v_blank" then
-            G.GAME.modifiers = G.GAME.modifiers or {}
-            G.GAME.modifiers.sell_cost = (G.GAME.modifiers.sell_cost or 0) + 1
-            print("Applied Blank - Increased sell values")
-        elseif voucher_key == "v_antimatter" then
-            G.GAME.modifiers = G.GAME.modifiers or {}
-            G.GAME.modifiers.sell_cost = (G.GAME.modifiers.sell_cost or 0) + 1
-            print("Applied Antimatter - Increased sell values")
-        elseif voucher_key == "v_magic_trick" then
-            G.hand.config.card_limit = G.hand.config.card_limit + 1
-            print("Applied Magic Trick - Can hold 1 more card")
-        elseif voucher_key == "v_illusion" then
-            G.hand.config.highlighted_limit = math.max(G.hand.config.highlighted_limit or 5, 5)
-            print("Applied Illusion - Increased playing card limit")
-        elseif voucher_key == "v_hieroglyph" then
-            if G.GAME.round_resets then
-                G.GAME.round_resets.ante_scaling = (G.GAME.round_resets.ante_scaling or 1) - 2
-                print("Applied Hieroglyph - Reduced ante scaling")
-            else
-                print("Warning: Could not apply Hieroglyph - round_resets not ready")
-            end
-        elseif voucher_key == "v_petroglyph" then
-            if G.GAME.round_resets then
-                G.GAME.round_resets.ante_scaling = (G.GAME.round_resets.ante_scaling or 1) - 2
-                print("Applied Petroglyph - Reduced ante scaling")
-            else
-                print("Warning: Could not apply Petroglyph - round_resets not ready")
-            end
-        elseif voucher_key == "v_directors_cut" then
-            G.GAME.round_resets.reroll_cost = math.max(0, (G.GAME.round_resets.reroll_cost or 5) - 1)
-            print("Applied Director's Cut - Reroll cost -$1")
-        elseif voucher_key == "v_paint_brush" then
-            G.hand.config.card_limit = G.hand.config.card_limit + 1
-            print("Applied Paint Brush - +1 hand size")
-        elseif voucher_key == "v_palette" then
-            G.hand.config.card_limit = G.hand.config.card_limit + 1
-            print("Applied Palette - +1 hand size")
-        elseif voucher_key == "v_clearance_sale" then
-            G.GAME.modifiers = G.GAME.modifiers or {}
-            G.GAME.modifiers.base_cost_mult = 0.75
-            print("Applied Clearance Sale - All items 25% off")
-        elseif voucher_key == "v_liquidation" then
-            G.GAME.modifiers = G.GAME.modifiers or {}
-            G.GAME.modifiers.base_cost_mult = 0.5
-            print("Applied Liquidation - All items 50% off")
-        elseif voucher_key == "v_reroll_surplus" then
-            G.GAME.round_resets.reroll_cost = math.max(0, (G.GAME.round_resets.reroll_cost or 5) - 2)
-            print("Applied Reroll Surplus - Base reroll cost -$2")
-        elseif voucher_key == "v_reroll_glut" then
-            G.GAME.round_resets.reroll_cost = math.max(0, (G.GAME.round_resets.reroll_cost or 5) - 2)
-            print("Applied Reroll Glut - Base reroll cost -$2")
-        elseif voucher_key == "v_crystal_ball" then
-            G.consumeables.config.card_limit = G.consumeables.config.card_limit + 1
-            print("Applied Crystal Ball - +1 consumable slot")
-        elseif voucher_key == "v_omen_globe" then
-            G.GAME.modifiers = G.GAME.modifiers or {}
-            G.GAME.modifiers.enable_spectral_in_shop = true
-            print("Applied Omen Globe - Spectral packs may appear in shop")
-        elseif voucher_key == "v_observatory" then
-            G.consumeables.config.card_limit = G.consumeables.config.card_limit + 1
-            if G.GAME.consumeable_edition_rate then
-                G.GAME.consumeable_edition_rate = G.GAME.consumeable_edition_rate + 2
-            end
-            print("Applied Observatory - Planet cards have x2 chance for edition")
-        end
-        
-        -- Try redeem method for any other effects
-        if voucher_obj.redeem then
-            local success, err = pcall(function()
-                voucher_obj:redeem()
-            end)
-            if not success then
-                print("Voucher redeem error for " .. voucher_key .. ": " .. tostring(err))
-            end
-        end
-        
-        print("Given voucher: " .. voucher_key)
+        }))
+    else
+        print("Error: Voucher not found - " .. voucher_key)
     end
 end
 
--- FIXED instant give joker - improved functionality with proper error checking
+-- In cs_instant_give_joker function, after creating the joker, add:
 G.FUNCS.cs_instant_give_joker = function(e)
     local joker_key = e.config.ref_table and e.config.ref_table.card_key
     
@@ -4000,6 +4944,7 @@ G.FUNCS.cs_instant_give_joker = function(e)
                 -- Apply edition
                 if mod.config.give_joker_edition and mod.config.give_joker_edition ~= 'base' then
                     joker:set_edition({[mod.config.give_joker_edition] = true})
+                    -- REMOVED: Manual slot increase for negative - game handles this automatically
                 end
                 
                 -- Add to deck first
@@ -4054,11 +4999,69 @@ G.FUNCS.cs_joker_next_page = function(e)
         current_joker_list = modded_jokers_by_mod[mod.config.active_mod_tab] or {}
     end
     
-    local jokers_per_page = 24
+    local jokers_per_page = 20
     local total_pages = math.ceil(#current_joker_list / jokers_per_page)
     
     mod.config.joker_page = math.min(total_pages, (mod.config.joker_page or 1) + 1)
     create_overlay(create_joker_menu())
+end
+
+-- Instant give consumable - add this after cs_instant_give_tag
+G.FUNCS.cs_instant_give_card = function(e)
+    local card_key = e.config.ref_table and e.config.ref_table.card_key
+    
+    if not card_key then
+        print("Error: No card key provided")
+        return
+    end
+    
+    -- Check if we're in a valid state
+    if not G.STATE or G.STATE == G.STATES.MENU then
+        print("Error: Cannot give consumables from menu, must be in a run")
+        return
+    end
+    
+    if not G.consumeables then
+        print("Error: Consumables area not available")
+        return
+    end
+    
+    if not G.P_CENTERS[card_key] then
+        print("Error: Card center not found - " .. card_key)
+        return
+    end
+    
+    -- Create card with event to ensure proper timing
+    G.E_MANAGER:add_event(Event({
+        trigger = 'immediate',
+        func = function()
+            local card = Card(
+                G.consumeables.T.x + G.consumeables.T.w/2,
+                G.consumeables.T.y,
+                G.CARD_W,
+                G.CARD_H,
+                nil,
+                G.P_CENTERS[card_key],
+                {bypass_discovery_center = true, bypass_discovery_ui = true}
+            )
+            
+            if card then
+                card:add_to_deck()
+                G.consumeables:emplace(card)
+                
+                -- Start materialize effect
+                card:start_materialize()
+                
+                -- Play sound
+                play_sound('card1', 1.2, 0.4)
+                
+                print("Given consumable: " .. card_key)
+            else
+                print("Error: Failed to create consumable card")
+            end
+            return true
+        end
+    }))
 end
 
 -- Tab switching functions
@@ -4086,6 +5089,81 @@ G.FUNCS.cs_switch_mod_tab = function(e)
         save_config()
         create_overlay(create_joker_menu())
     end
+end
+
+-- Mod page navigation functions
+G.FUNCS.cs_prev_mod_page_joker = function(e)
+    local mod_list = {}
+    for mod_name, _ in pairs(modded_jokers_by_mod) do
+        table.insert(mod_list, mod_name)
+    end
+    local total_pages = math.ceil(#mod_list / 5)
+    
+    mod.config.mod_page_joker = math.max(1, (mod.config.mod_page_joker or 1) - 1)
+    save_config()
+    create_overlay(create_joker_menu())
+end
+
+G.FUNCS.cs_next_mod_page_joker = function(e)
+    local mod_list = {}
+    for mod_name, _ in pairs(modded_jokers_by_mod) do
+        table.insert(mod_list, mod_name)
+    end
+    local total_pages = math.ceil(#mod_list / 5)
+    
+    mod.config.mod_page_joker = math.min(total_pages, (mod.config.mod_page_joker or 1) + 1)
+    save_config()
+    create_overlay(create_joker_menu())
+end
+
+-- Mod page navigation for vouchers
+G.FUNCS.cs_prev_mod_page_voucher = function(e)
+    local mod_list = {}
+    for mod_name, _ in pairs(modded_vouchers_by_mod) do
+        table.insert(mod_list, mod_name)
+    end
+    local total_pages = math.ceil(#mod_list / 5)
+    
+    mod.config.mod_page_voucher = math.max(1, (mod.config.mod_page_voucher or 1) - 1)
+    save_config()
+    create_overlay(create_voucher_menu())
+end
+
+G.FUNCS.cs_next_mod_page_voucher = function(e)
+    local mod_list = {}
+    for mod_name, _ in pairs(modded_vouchers_by_mod) do
+        table.insert(mod_list, mod_name)
+    end
+    local total_pages = math.ceil(#mod_list / 5)
+    
+    mod.config.mod_page_voucher = math.min(total_pages, (mod.config.mod_page_voucher or 1) + 1)
+    save_config()
+    create_overlay(create_voucher_menu())
+end
+
+-- Mod page navigation for tags
+G.FUNCS.cs_prev_mod_page_tag = function(e)
+    local mod_list = {}
+    for mod_name, _ in pairs(modded_tags_by_mod) do
+        table.insert(mod_list, mod_name)
+    end
+    local total_pages = math.ceil(#mod_list / 5)
+    
+    mod.config.mod_page_tag = math.max(1, (mod.config.mod_page_tag or 1) - 1)
+    save_config()
+    create_overlay(create_tag_menu())
+end
+
+G.FUNCS.cs_next_mod_page_tag = function(e)
+    local mod_list = {}
+    for mod_name, _ in pairs(modded_tags_by_mod) do
+        table.insert(mod_list, mod_name)
+    end
+    local total_pages = math.ceil(#mod_list / 5)
+    
+    mod.config.mod_page_tag = math.min(total_pages, (mod.config.mod_page_tag or 1) + 1)
+    save_config()
+    create_overlay(create_tag_menu())
 end
 
 -- Navigation functions for voucher pages
@@ -4357,7 +5435,149 @@ G.FUNCS.cs_give_prev_page = function(e)
             current_list = modded_tags_by_mod[mod.config.give_tag_mod_tab] or {}
         end
         create_overlay(create_card_selection_menu(current_list, "SELECT TAG", "cs_instant_give_tag"))
+	elseif mod.config.give_type == "modded_consumable" then
+        -- Use the stored list
+        local current_list = mod.config.current_modded_list or {}
+        create_overlay(create_card_selection_menu(current_list, "SELECT " .. (mod.config.current_type_name or "ITEM"), "cs_instant_give_card"))
     end
+end
+
+-- Give menu mod navigation for jokers
+G.FUNCS.cs_give_prev_mod_page_joker = function(e)
+    local mod_list = {}
+    for mod_name, _ in pairs(modded_jokers_by_mod) do
+        table.insert(mod_list, mod_name)
+    end
+    local total_pages = math.ceil(#mod_list / 5)
+    
+    mod.config.give_mod_page_joker = math.max(1, (mod.config.give_mod_page_joker or 1) - 1)
+    create_overlay(create_card_selection_menu(modded_jokers_by_mod[mod.config.give_mod_tab] or {}, "SELECT JOKER", "cs_instant_give_joker"))
+end
+
+G.FUNCS.cs_give_next_mod_page_joker = function(e)
+    local mod_list = {}
+    for mod_name, _ in pairs(modded_jokers_by_mod) do
+        table.insert(mod_list, mod_name)
+    end
+    local total_pages = math.ceil(#mod_list / 5)
+    
+    mod.config.give_mod_page_joker = math.min(total_pages, (mod.config.give_mod_page_joker or 1) + 1)
+    create_overlay(create_card_selection_menu(modded_jokers_by_mod[mod.config.give_mod_tab] or {}, "SELECT JOKER", "cs_instant_give_joker"))
+end
+
+-- Give menu mod navigation for vouchers
+G.FUNCS.cs_give_prev_mod_page_voucher = function(e)
+    local mod_list = {}
+    for mod_name, _ in pairs(modded_vouchers_by_mod) do
+        table.insert(mod_list, mod_name)
+    end
+    local total_pages = math.ceil(#mod_list / 5)
+    
+    mod.config.give_mod_page_voucher = math.max(1, (mod.config.give_mod_page_voucher or 1) - 1)
+    create_overlay(create_card_selection_menu(modded_vouchers_by_mod[mod.config.give_voucher_mod_tab] or {}, "SELECT VOUCHER", "cs_instant_give_voucher"))
+end
+
+G.FUNCS.cs_give_next_mod_page_voucher = function(e)
+    local mod_list = {}
+    for mod_name, _ in pairs(modded_vouchers_by_mod) do
+        table.insert(mod_list, mod_name)
+    end
+    local total_pages = math.ceil(#mod_list / 5)
+    
+    mod.config.give_mod_page_voucher = math.min(total_pages, (mod.config.give_mod_page_voucher or 1) + 1)
+    create_overlay(create_card_selection_menu(modded_vouchers_by_mod[mod.config.give_voucher_mod_tab] or {}, "SELECT VOUCHER", "cs_instant_give_voucher"))
+end
+
+-- Give menu mod navigation for tags
+G.FUNCS.cs_give_prev_mod_page_tag = function(e)
+    local mod_list = {}
+    for mod_name, _ in pairs(modded_tags_by_mod) do
+        table.insert(mod_list, mod_name)
+    end
+    local total_pages = math.ceil(#mod_list / 5)
+    
+    mod.config.give_mod_page_tag = math.max(1, (mod.config.give_mod_page_tag or 1) - 1)
+    create_overlay(create_card_selection_menu(modded_tags_by_mod[mod.config.give_tag_mod_tab] or {}, "SELECT TAG", "cs_instant_give_tag"))
+end
+
+G.FUNCS.cs_give_next_mod_page_tag = function(e)
+    local mod_list = {}
+    for mod_name, _ in pairs(modded_tags_by_mod) do
+        table.insert(mod_list, mod_name)
+    end
+    local total_pages = math.ceil(#mod_list / 5)
+    
+    mod.config.give_mod_page_tag = math.min(total_pages, (mod.config.give_mod_page_tag or 1) + 1)
+    create_overlay(create_card_selection_menu(modded_tags_by_mod[mod.config.give_tag_mod_tab] or {}, "SELECT TAG", "cs_instant_give_tag"))
+end
+
+-- Give menu mod navigation for tarots
+G.FUNCS.cs_give_prev_mod_page_tarot = function(e)
+    local mod_list = {}
+    for mod_name, _ in pairs(modded_tarots_by_mod) do
+        table.insert(mod_list, mod_name)
+    end
+    local total_pages = math.ceil(#mod_list / 5)
+    
+    mod.config.give_mod_page_tarot = math.max(1, (mod.config.give_mod_page_tarot or 1) - 1)
+    create_overlay(create_card_selection_menu(modded_tarots_by_mod[mod.config.give_tarot_mod_tab] or {}, "SELECT TAROT CARD", "cs_instant_give_card"))
+end
+
+G.FUNCS.cs_give_next_mod_page_tarot = function(e)
+    local mod_list = {}
+    for mod_name, _ in pairs(modded_tarots_by_mod) do
+        table.insert(mod_list, mod_name)
+    end
+    local total_pages = math.ceil(#mod_list / 5)
+    
+    mod.config.give_mod_page_tarot = math.min(total_pages, (mod.config.give_mod_page_tarot or 1) + 1)
+    create_overlay(create_card_selection_menu(modded_tarots_by_mod[mod.config.give_tarot_mod_tab] or {}, "SELECT TAROT CARD", "cs_instant_give_card"))
+end
+
+-- Give menu mod navigation for planets
+G.FUNCS.cs_give_prev_mod_page_planet = function(e)
+    local mod_list = {}
+    for mod_name, _ in pairs(modded_planets_by_mod) do
+        table.insert(mod_list, mod_name)
+    end
+    local total_pages = math.ceil(#mod_list / 5)
+    
+    mod.config.give_mod_page_planet = math.max(1, (mod.config.give_mod_page_planet or 1) - 1)
+    create_overlay(create_card_selection_menu(modded_planets_by_mod[mod.config.give_planet_mod_tab] or {}, "SELECT PLANET CARD", "cs_instant_give_card"))
+end
+
+G.FUNCS.cs_give_next_mod_page_planet = function(e)
+    local mod_list = {}
+    for mod_name, _ in pairs(modded_planets_by_mod) do
+        table.insert(mod_list, mod_name)
+    end
+    local total_pages = math.ceil(#mod_list / 5)
+    
+    mod.config.give_mod_page_planet = math.min(total_pages, (mod.config.give_mod_page_planet or 1) + 1)
+    create_overlay(create_card_selection_menu(modded_planets_by_mod[mod.config.give_planet_mod_tab] or {}, "SELECT PLANET CARD", "cs_instant_give_card"))
+end
+
+-- Give menu mod navigation for spectrals
+G.FUNCS.cs_give_prev_mod_page_spectral = function(e)
+    local mod_list = {}
+    for mod_name, _ in pairs(modded_spectrals_by_mod) do
+        table.insert(mod_list, mod_name)
+    end
+    local total_pages = math.ceil(#mod_list / 5)
+    
+    mod.config.give_mod_page_spectral = math.max(1, (mod.config.give_mod_page_spectral or 1) - 1)
+    create_overlay(create_card_selection_menu(modded_spectrals_by_mod[mod.config.give_spectral_mod_tab] or {}, "SELECT SPECTRAL CARD", "cs_instant_give_card"))
+end
+
+G.FUNCS.cs_give_next_mod_page_spectral = function(e)
+    local mod_list = {}
+    for mod_name, _ in pairs(modded_spectrals_by_mod) do
+        table.insert(mod_list, mod_name)
+    end
+    local total_pages = math.ceil(#mod_list / 5)
+    
+    mod.config.give_mod_page_spectral = math.min(total_pages, (mod.config.give_mod_page_spectral or 1) + 1)
+    create_overlay(create_card_selection_menu(modded_spectrals_by_mod[mod.config.give_spectral_mod_tab] or {}, "SELECT SPECTRAL CARD", "cs_instant_give_card"))
 end
 
 G.FUNCS.cs_give_next_page = function(e)
@@ -4401,7 +5621,10 @@ G.FUNCS.cs_give_next_page = function(e)
         else
             current_list = available_tags
         end
-    end
+    elseif mod.config.give_type == "modded_consumable" then
+        -- Use the stored list
+        current_list = mod.config.current_modded_list or {}
+        end
     
     if current_list then
         total_pages = math.ceil(#current_list / 20)
@@ -4422,7 +5645,9 @@ G.FUNCS.cs_give_next_page = function(e)
         create_overlay(create_card_selection_menu(current_list, "SELECT VOUCHER", "cs_instant_give_voucher"))
     elseif mod.config.give_type == "tag" then
         create_overlay(create_card_selection_menu(current_list, "SELECT TAG", "cs_instant_give_tag"))
-    end
+    elseif mod.config.give_type == "modded_consumable" then
+        create_overlay(create_card_selection_menu(current_list, "SELECT " .. (mod.config.current_type_name or "ITEM"), "cs_instant_give_card"))
+	end
 end
 
 -- Toggle joker selection (with shift-click to remove)
@@ -4743,7 +5968,7 @@ end
 
 G.FUNCS.cs_cycle_edition = function(e)
     local current_index = 1
-    for i, edition in ipairs(edition_options) do
+    for i, edition in ipairs(card_edition_options) do
         if edition.key == mod.config.current_edition then
             current_index = i
             break
@@ -4751,11 +5976,11 @@ G.FUNCS.cs_cycle_edition = function(e)
     end
     
     current_index = current_index + 1
-    if current_index > #edition_options then
+    if current_index > #card_edition_options then
         current_index = 1
     end
     
-    mod.config.current_edition = edition_options[current_index].key
+    mod.config.current_edition = card_edition_options[current_index].key
     save_config()
     print("Edition changed to: " .. mod.config.current_edition)
     create_overlay(create_deck_builder())
@@ -4763,7 +5988,7 @@ end
 
 G.FUNCS.cs_cycle_starting_joker_edition = function(e)
     local current_index = 1
-    for i, edition in ipairs(edition_options) do
+    for i, edition in ipairs(joker_edition_options) do
         if edition.key == mod.config.starting_joker_edition then
             current_index = i
             break
@@ -4771,18 +5996,18 @@ G.FUNCS.cs_cycle_starting_joker_edition = function(e)
     end
     
     current_index = current_index + 1
-    if current_index > #edition_options then
+    if current_index > #joker_edition_options then
         current_index = 1
     end
     
-    mod.config.starting_joker_edition = edition_options[current_index].key
+    mod.config.starting_joker_edition = joker_edition_options[current_index].key
     save_config()
     create_overlay(create_joker_menu())
 end
 
 G.FUNCS.cs_cycle_give_joker_edition = function(e)
     local current_index = 1
-    for i, edition in ipairs(edition_options) do
+    for i, edition in ipairs(joker_edition_options) do
         if edition.key == mod.config.give_joker_edition then
             current_index = i
             break
@@ -4790,11 +6015,11 @@ G.FUNCS.cs_cycle_give_joker_edition = function(e)
     end
     
     current_index = current_index + 1
-    if current_index > #edition_options then
+    if current_index > #joker_edition_options then
         current_index = 1
     end
     
-    mod.config.give_joker_edition = edition_options[current_index].key
+    mod.config.give_joker_edition = joker_edition_options[current_index].key
     save_config()
     -- Recreate the appropriate give menu
     create_overlay(create_card_selection_menu(
@@ -4802,6 +6027,43 @@ G.FUNCS.cs_cycle_give_joker_edition = function(e)
         "SELECT JOKER", 
         "cs_instant_give_joker"
     ))
+end
+
+-- Add menu key remapping functions
+G.FUNCS.cs_change_menu_key = function(e)
+    -- Create key capture dialog
+    local key_dialog = {
+        n = G.UIT.ROOT,
+        config = {align = "cm", minw = 6, minh = 4, colour = {0, 0, 0, 0.9}, r = 0.1, padding = 0.1},
+        nodes = {
+            {n = G.UIT.R, config = {align = "cm", padding = 0.2, colour = {0, 0, 0, 1}, r = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "PRESS NEW KEY", scale = 0.6, colour = {1, 1, 1, 1}}}}},
+            
+            {n = G.UIT.R, config = {align = "cm", padding = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "Press any key to set as menu key", scale = 0.4, colour = {0.7, 0.7, 0.7, 1}}}}},
+            
+            {n = G.UIT.R, config = {align = "cm", padding = 0.1}, 
+             nodes = {{n = G.UIT.T, config = {text = "Current: " .. string.upper(mod.config.menu_key), scale = 0.4, colour = {1, 1, 0, 1}}}}},
+            
+            {n = G.UIT.R, config = {align = "cm", padding = 0.2}, nodes = {
+                {n = G.UIT.C, config = {align = "cm", padding = 0.1, button = "cs_cancel_key_change", hover = true, minw = 2, minh = 0.8, colour = G.C.RED, r = 0.1}, 
+                 nodes = {{n = G.UIT.T, config = {text = "Cancel", scale = 0.5, colour = G.C.WHITE}}}}
+            }}
+        }
+    }
+    
+    mod._capturing_key = true
+    create_overlay(key_dialog)
+end
+
+G.FUNCS.cs_cancel_key_change = function(e)
+    mod._capturing_key = false
+    -- Return to config menu
+    if G.OVERLAY_MENU then
+        G.OVERLAY_MENU:remove()
+        G.OVERLAY_MENU = nil
+    end
+    G.FUNCS.options(nil, true)
 end
 
 -- Unlock all function - IMPROVED to unlock everything
@@ -4976,6 +6238,40 @@ end
 -- Keyboard shortcut handling - FIXED to not interfere with other menus
 local ref_Controller_key_press = Controller.key_press
 function Controller:key_press(key)
+    -- Handle key capture mode
+    if mod._capturing_key then
+        -- Don't capture special keys
+        local invalid_keys = {
+            'escape', 'return', 'kpenter', 'space', 'tab', 'backspace',
+            'lshift', 'rshift', 'lctrl', 'rctrl', 'lalt', 'ralt',
+            'up', 'down', 'left', 'right'
+        }
+        
+        local is_invalid = false
+        for _, invalid_key in ipairs(invalid_keys) do
+            if key == invalid_key then
+                is_invalid = true
+                break
+            end
+        end
+        
+        if not is_invalid and string.len(key) > 0 then
+            mod.config.menu_key = key
+            save_config()
+            mod._capturing_key = false
+            
+            -- Return to config menu
+            if G.OVERLAY_MENU then
+                G.OVERLAY_MENU:remove()
+                G.OVERLAY_MENU = nil
+            end
+            G.FUNCS.options(nil, true)
+            
+            print("ZokersModMenu: Menu key changed to: " .. string.upper(key))
+        end
+        return
+    end
+    
     -- Handle text input mode
     if mod.text_input_active then
         if key == 'return' or key == 'kpenter' then
@@ -5015,8 +6311,8 @@ function Controller:key_press(key)
     -- Call original function first
     local ret = ref_Controller_key_press(self, key)
     
-    -- Check if 'c' key was pressed and we're not typing in a text field
-    if key == 'c' and not (G.CONTROLLER and G.CONTROLLER.text_input_hook) and not mod.text_input_active then
+    -- Check if the configured key was pressed
+    if key == mod.config.menu_key and not (G.CONTROLLER and G.CONTROLLER.text_input_hook) and not mod.text_input_active then
         -- Always allow during runs or in menu
         if G.STAGE == G.STAGES.RUN or G.STATE == G.STATES.MENU then
             -- TOGGLE our specific menu ONLY

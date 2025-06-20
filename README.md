@@ -1,8 +1,18 @@
-# ZokersModMenu v2.1.0
+# ZokersModMenu v2.1.1
 
 The ultimate customization mod for Balatro. Modify everything: starting conditions, deck composition, items, money, ante scaling, and more. Give yourself any item during runs, build custom decks with multiple card variations, and start with any combination of jokers, vouchers, and tags.
 
-## 🆕 What's New in v2.1.0
+## 🆕 What's New in v2.1.1 (2025-06-19)
+-Multiple Mods appear in Items menu now
+-Better formatting
+-Vouchers are being given now and actually applying
+-Configurable keybind
+-Pull Jokers from Collection Automatically
+-Automatically remove prefixes of all added cards, jokers, items
+-Added more Editions to cards
+-Added Modded Consumables
+
+## v2.1.0
 -Added Modded Support for Jokers, Vouchers, and Consumables
 -Added Editions to Starting Jokers and Givable Jokers
 -Added Colored Buttons to Editions, Enhancements, and Seals
@@ -111,7 +121,7 @@ cs_unlock_all()        -- Unlock everything
 
 ## Version History
 
-### v1.5.0 (Latest - 2025-06-11)
+### v1.5.0 (2025-06-11)
 - **ADDED**: SteamModded Config as alternative menu access
 - **ENHANCED**: Crash prevention system with better error handling
 - **FIXED**: Metadata structure for improved mod loader compatibility
